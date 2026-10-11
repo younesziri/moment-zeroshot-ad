@@ -3,6 +3,21 @@
 Mini-project for *Apprentissage pour les séries temporelles* (MVA): zero-shot anomaly
 detection with MOMENT (Goswami et al., ICML 2024), evaluated with and without point-adjust.
 
+## Question
+Does the zero-shot anomaly-detection advantage reported for MOMENT (Goswami et al., ICML 2024)
+hold under an evaluation calibrated against chance? The paper's headline metric (adjusted best F1,
+with point-adjust and a threshold chosen with the labels) can reward luck, so this project asks
+which conclusions survive stricter evaluation.
+
+## Approach
+1. **Reproduce** the paper's zero-shot results with the released weights.
+2. **Re-evaluate the same scores**: random-score baseline, point-wise and range-aware metrics,
+   a threshold fixed without labels, simple baselines (rolling z-score, k-NN), and paired
+   statistics across series.
+3. **Extend**: masked scoring at inference (planned).
+
+## Status
+Work in progress, MVA course project (due Dec 2026).
 ## Setup
 
 ```bash
