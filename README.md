@@ -6,20 +6,29 @@ chance. **Work in progress**: so far, one series; the 248-series study is next.
 
 ## Summary (one series: tiltAPB2, the series of the authors' own tutorial)
 
-1. **The paper's number reproduces, but on that metric chance does as well.** MOMENT-1-large gets
-   an adjusted best F1 of 0.960 under the paper's protocol (the paper reports 0.96, Table 22).
-   Random scores reach similar values: at full resolution, random squared-Gaussian scores average
-   0.945, MOMENT 0.922. The metric depends on the *scale* of the scores, not only on their ranking.
-2. **Under metrics that cannot be gamed by scale, MOMENT's signal is real but small, and not
-   usable as an alert.** At full resolution its AUC-PR is 0.014 against 0.011 for chance
-   (p = 0.001), its single highest score is not near the anomaly, and a threshold set without
-   labels never fires. k-NN, the paper's baseline, has the stronger signal (AUC-PR 0.022) but
-   raises 276 false-alarm events.
-3. **The released setup has pitfalls.** The tutorial leaves dropout on; only MOMENT-1-large works
-   zero-shot (the small and base checkpoints ship an untrained reconstruction head); the released
-   weights need the positional embedding that the authors' zero-shot config turns off.
+1. **The paper's number reproduces, but the paper's metric can't tell it from chance.** Under the
+   paper's ×10 protocol, MOMENT-1-large gets an adjusted best F1 of 0.960 (paper: 0.96, Table 22);
+   random squared-Gaussian scores, heavy-tailed like squared errors, reach at least 0.960 in 8% of
+   draws (p = 0.08). At full resolution (the tutorial's protocol) they average 0.945, above MOMENT's
+   0.922 (p = 0.74). Against uniform random scores MOMENT is significant (p = 0.005 at ×10, 0.006 at
+   full resolution): the verdict depends on the *shape* of the score distribution, not only on the
+   ranking. With every score replaced by its rank, MOMENT gets 0.684 against 0.680 for chance at full
+   resolution, and 0.689 against 0.583 at ×10.
+2. **Under stricter metrics, MOMENT's signal is real but small, and doesn't give a useful alert.**
+   At full resolution its AUC-PR is 0.014 against 0.011 for chance (p ≤ 0.001), its highest score is
+   not near the anomaly, and a threshold set without labels raises 12 false alarms but never fires on
+   the anomaly. k-NN has the stronger signal at full resolution (AUC-PR 0.022) and catches the
+   anomaly, with 276 false alarms; under the ×10 protocol the order reverses (MOMENT 0.027, k-NN
+   0.019). One series cannot rank detectors.
+3. **The released setup has pitfalls.** With momentfm's pinned dependencies the model loads with
+   dropout on, and the tutorial doesn't switch it off; the published small and base checkpoints
+   contain a reconstruction head that matches momentfm's initialisation exactly, so only large works
+   zero-shot; and the released weights need the positional embedding that the authors' zero-shot
+   config turns off.
 
 One series is a case study, not a conclusion about MOMENT: see [Limitations](#limitations).
+
+![MOMENT-1-large on the tiltAPB2 test part, full resolution](figures/tiltAPB2_x1.png)
 
 ## Question
 
@@ -58,7 +67,8 @@ produced by `scripts/run_case_study.py`:
 | Random uniform (1000 draws) | 0.679 ± 0.025 | 0.679 ± 0.023 | 0.022 ± 0.001 | 0.011 ± 0.000 | 0.500 ± 0.010 | 9/1000 |
 | Random squared Gaussian (1000 draws) | 0.945 ± 0.047 | 0.680 ± 0.032 | 0.022 ± 0.001 | 0.011 ± 0.000 | 0.500 ± 0.010 | 13/1000 |
 
-Empirical p-values, against random uniform / random squared Gaussian:
+Empirical p-values, against random uniform / random squared Gaussian (0.001 is the smallest value
+1000 draws allow, 1/1001, so read it as p ≤ 0.001):
 
 | Method | Adj. best F1 (paper) | Same, rank scores | Best F1, point-wise | AUC-PR | AUC-ROC |
 |---|---|---|---|---|---|
@@ -72,9 +82,8 @@ events; random scores detect it in 112 of 1000 draws, with about 11 false-alarm 
 ×10 max-pooled (the paper's protocol), from [`results/tiltAPB2_x10.md`](results/tiltAPB2_x10.md):
 MOMENT-1-large's adjusted best F1 is 0.960 (paper: 0.96); 0.689 on rank scores; AUC-PR 0.027
 against 0.012 for chance. On the paper's metric, random squared-Gaussian scores average
-0.696 ± 0.195 and reach at least 0.960 in about 8% of draws (p = 0.079).
-
-![MOMENT-1-large on the tiltAPB2 test part, full resolution](figures/tiltAPB2_x1.png)
+0.696 ± 0.195 and reach at least 0.960 in about 8% of draws (p = 0.079). k-NN's AUC-PR is 0.019:
+below MOMENT at ×10, above it at full resolution (0.022 vs 0.014).
 
 ### How to read these numbers
 
@@ -87,6 +96,10 @@ against 0.012 for chance. On the paper's metric, random squared-Gaussian scores 
   which gives F1 ≈ 0.68, close to the measured 0.679. Squared-Gaussian scores
   have a long tail, so several thresholds flag only a few dozen points; when one of them falls in
   the anomaly, F1 is about 0.95.
+- **Shape, not scale.** Multiplying or shifting the scores moves all 100 thresholds with them and
+  changes nothing; only a non-linear reshaping (squaring, ranking) changes the result. That is why
+  two random baselines are needed, and why the squared-Gaussian one is the relevant null for
+  MOMENT, whose scores are squared errors.
 - **Rank scores** replace each score by its rank: the ordering, and so every possible alert, is
   unchanged, but the shape is gone. Uniform and squared-Gaussian scores then agree (0.679, 0.680),
   and MOMENT is barely above them (0.684).
@@ -102,21 +115,32 @@ against 0.012 for chance. On the paper's metric, random squared-Gaussian scores 
 From [`results/moment_diagnostics.md`](results/moment_diagnostics.md), produced by
 `scripts/diagnose_moment.py`:
 
-| Model | Loads with `strict=True`, embedding off | corr(sine, reconstruction), embedding on / off | Head still at initialisation |
+| Model | max abs(head bias) | max abs(W·Wᵀ − 1.41²·I) | corr(sine, reconstruction), embedding on / off |
 |---|---|---|---|
-| MOMENT-1-small | no: unexpected `position_embedding.pe` | −0.066 / 0.111 | yes (0.0000) |
-| MOMENT-1-base | no: unexpected `position_embedding.pe` | 0.001 / −0.162 | yes (0.0000) |
-| MOMENT-1-large | no: unexpected `position_embedding.pe` | 0.987 / −0.562 | no (1.3097) |
+| MOMENT-1-small | 0.0000 | 0.0000 | −0.066 / 0.111 |
+| MOMENT-1-base | 0.0000 | 0.0000 | 0.001 / −0.162 |
+| MOMENT-1-large | 0.0121 | 1.3097 | 0.987 / −0.562 |
+| small, no weights loaded | 0.0000 | 0.0000 | 0.028 / – |
 
-All three checkpoints load completely with the positional embedding on and contain its table, so
-they were saved with it; turning it off, as the authors' zero-shot config does, breaks Large. The
-small and base reconstruction heads have exactly momentfm's initial values (zero bias,
-W·Wᵀ = 1.41²·I), like a model with no weights loaded: they cannot reconstruct even a sine wave.
+- **The head values are read directly from the `.safetensors` files** (Hugging Face revisions
+  `411e288267`, `5e44b0ea26`, `ca58581bc7` for small, base, large). For small and base they match
+  momentfm's initialisation exactly (zero bias, orthogonal rows scaled by 1.41, so W·Wᵀ = 1.41²·I),
+  like a model with no weights loaded; training would have moved them, so we infer these heads were
+  never trained. Neither model reconstructs even a sine wave. This also rules out the idea that they
+  were trained only to predict masked patches: a head trained on anything would have moved.
+- **The positional embedding:** all three checkpoints load with `strict=True` with it on, and contain
+  its table (`patch_embedding.position_embedding.pe`), so they were saved with it; with it off,
+  `strict=True` loading fails on that table, and Large no longer reconstructs.
 
 ## Limitations
 
 - **One series**, with a synthetic anomaly. Nothing here is a claim about the 248-series average
   of the paper (Table 7).
+- **Possible pretraining overlap.** The UCR series come from the KDD21 collection, which is part of
+  MOMENT's pretraining data (paper, Table 12). The paper says long series were split into
+  train/validation/test parts for pretraining, and the authors' tutorial says MOMENT was not exposed
+  to the test part of this series; the anomaly-free part may have been seen. Not verified; it matters
+  for what "zero-shot" means here.
 - **The random baseline is iid noise.** Real detectors produce bursty scores, so p-values against
   iid noise are probably optimistic for them.
 - **Released weights, not the paper's checkpoint.** The paper's zero-shot code loads an internal
@@ -154,8 +178,6 @@ uv run python scripts/check_setup.py      # feasibility check (downloads ~2 GB o
   (`_register_pytree_node`) that recent torch only keeps as deprecated; the lockfile pins a
   combination that works.
 
-
-
 ### Data
 
 `data/198_UCR_Anomaly_tiltAPB2_50000_124159_124985.out`: one series from the UCR Anomaly
@@ -182,7 +204,9 @@ anomaly-free training part; the anomaly is at 0-based indices `[124159, 124984]`
   KDD, 635–645. (Evaluation by comparison to a random detector; our p-values follow that idea,
   not their method.)
 - Tatbul, Lee, Zdonik, Alam & Gottschlich (2018). Precision and Recall for Time Series. NeurIPS.
-- Wu & Keogh. The UCR Time Series Anomaly Archive.
+- Wu & Keogh (2021). Current Time Series Anomaly Detection Benchmarks are Flawed and are Creating
+  the Illusion of Progress. IEEE Transactions on Knowledge and Data Engineering. (Introduces the
+  UCR Anomaly Archive.)
 - L. Oudre, *Machine Learning for Time Series*, Lecture 5: Change-point and Anomaly Detection,
   MVA 2026–2027.
 

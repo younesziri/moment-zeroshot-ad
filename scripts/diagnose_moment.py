@@ -5,8 +5,9 @@ For each released size (and an untrained small as reference):
     strict=False, which would silently leave mismatched layers at their random initialisation.
     Checked with the positional embedding on (momentfm's default) and off (the authors' config);
   - reconstruction of a clean sine wave: corr(x, x̂), positional embedding on and off;
-  - reconstruction head: momentfm initialises it with zero bias and orthogonal rows scaled by
-    1.41, so W·Wᵀ = 1.41²·I. Values still at 0 below mean the head was never trained.
+  - reconstruction head, read directly from the .safetensors file (no momentfm involved):
+    momentfm initialises it with zero bias and orthogonal rows scaled by 1.41, so W·Wᵀ = 1.41²·I.
+    Values still at 0 below mean the head matches that initialisation exactly (never trained).
 
 Usage:  uv run python scripts/diagnose_moment.py
 Output: results/moment_diagnostics.md
@@ -19,6 +20,7 @@ import numpy as np
 import torch
 from huggingface_hub import try_to_load_from_cache
 from momentfm import MOMENTPipeline
+from safetensors import safe_open
 
 from zsad.moment import load_moment, moment_scores
 
@@ -51,23 +53,31 @@ def sine_corr(model) -> str:
     return f"{np.corrcoef(SINE, moment_scores(model, SINE, 'cpu')[1])[0, 1]:.3f}"
 
 
-def head_from_init(model) -> list[str]:
-    W = model.head.linear.weight.detach().double()  # 8 x d_model
-    bias = model.head.linear.bias.detach().abs().max().item()
+def head_from_init(W: torch.Tensor, b: torch.Tensor) -> list[str]:
+    W = W.detach().double()  # 8 x d_model
     orth = (W @ W.T - 1.41**2 * torch.eye(W.shape[0], dtype=torch.float64)).abs().max().item()
-    return [f"{bias:.4f}", f"{orth:.4f}"]
+    return [f"{b.detach().abs().max().item():.4f}", f"{orth:.4f}"]
+
+
+def checkpoint_head(size: str) -> tuple[str, torch.Tensor, torch.Tensor]:
+    """Hugging Face revision (the snapshot folder's name) and the head tensors, read from the file."""
+    path = Path(try_to_load_from_cache(f"AutonLab/MOMENT-1-{size}", "model.safetensors"))
+    with safe_open(path, "pt") as f:
+        return path.parent.name, f.get_tensor("head.linear.weight"), f.get_tensor("head.linear.bias")
 
 
 def main():
-    header = ["Model", "Loads strictly, emb. on", "Loads strictly, emb. off", "corr(sine), emb. on",
-              "corr(sine), emb. off", "max abs(head bias)", "max abs(W·Wᵀ − 1.41²·I)"]
+    header = ["Model", "HF revision", "Loads strictly, emb. on", "Loads strictly, emb. off", "corr(sine), emb. on",
+              "corr(sine), emb. off", "max abs(head bias), file", "max abs(W·Wᵀ − 1.41²·I), file"]
     rows = []
     for size in SIZES:
         on, off = load_moment(size, "cpu"), load_moment(size, "cpu", positional_embedding=False)
-        rows.append([f"MOMENT-1-{size}", loads_strictly(size, True), loads_strictly(size, False),
-                     sine_corr(on), sine_corr(off), *head_from_init(on)])
+        revision, W, b = checkpoint_head(size)
+        rows.append([f"MOMENT-1-{size}", revision[:10], loads_strictly(size, True), loads_strictly(size, False),
+                     sine_corr(on), sine_corr(off), *head_from_init(W, b)])
     model = untrained_small()
-    rows.append(["small, untrained (no weights)", "–", "–", sine_corr(model), "–", *head_from_init(model)])
+    rows.append(["small, untrained (no weights)", "–", "–", "–", sine_corr(model), "–",
+                 *head_from_init(model.head.linear.weight, model.head.linear.bias)])
 
     lines = ["| " + " | ".join(header) + " |", "|" + "---|" * len(header)] + ["| " + " | ".join(r) + " |" for r in rows]
     text = "Produced by `scripts/diagnose_moment.py`.\n\n" + "\n".join(lines) + "\n"
