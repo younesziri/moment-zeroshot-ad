@@ -1,10 +1,9 @@
 """Baseline anomaly scores: one score per point, higher = more anomalous."""
 
 import numpy as np
-import pandas as pd
 from sklearn.neighbors import NearestNeighbors
 
-from zsad.windows import make_windows, stitch
+from zsad.data import unwindow, windows
 
 
 def random_scores(n: int, kind: str, seed: int) -> np.ndarray:
@@ -18,15 +17,6 @@ def random_scores(n: int, kind: str, seed: int) -> np.ndarray:
     raise ValueError(f"unknown kind: {kind}")
 
 
-def rolling_zscore(x: np.ndarray, window: int = 512) -> np.ndarray:
-    """Squared z-score of each point against the `window` points before it (causal: the current
-    point is not in its own reference window). The first `window` points are NaN."""
-    s = pd.Series(x)
-    past = s.shift(1).rolling(window)
-    z = (s - past.mean()) / past.std()
-    return (z**2).to_numpy()
-
-
 def knn_scores(train: np.ndarray, x: np.ndarray, window: int = 512, k: int = 5) -> np.ndarray:
     """k-NN reconstruction, as in the authors' code (moment/models/anomaly_nearest_neighbors.py):
     each test window is reconstructed as the mean of its k nearest train windows (stride 1),
@@ -34,7 +24,7 @@ def knn_scores(train: np.ndarray, x: np.ndarray, window: int = 512, k: int = 5) 
     windows as for MOMENT."""
     train_windows = np.lib.stride_tricks.sliding_window_view(train, window)
     nn = NearestNeighbors(n_neighbors=k).fit(train_windows)
-    windows, starts = make_windows(x, window)
-    _, idx = nn.kneighbors(windows)
+    test_windows = windows(x, window)
+    _, idx = nn.kneighbors(test_windows)
     reconstruction = train_windows[idx].mean(axis=1)
-    return stitch((windows - reconstruction) ** 2, starts, len(x))
+    return unwindow((test_windows - reconstruction) ** 2, len(x))

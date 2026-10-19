@@ -53,11 +53,13 @@ def best_f1(labels: np.ndarray, scores: np.ndarray) -> float:
     return float(f1.max())
 
 
-def near_anomaly(first: np.ndarray, last: np.ndarray, anomaly_start: int, anomaly_end: int,
-                 tolerance: int = 100) -> np.ndarray:
-    """Which blocks, covering original indices [first, last], overlap the UCR tolerance range
-    [anomaly_start - tolerance, anomaly_end + tolerance] (KDD Cup 2021 scoring)."""
-    return (first <= anomaly_end + tolerance) & (last >= anomaly_start - tolerance)
+def near_anomaly(labels: np.ndarray, tolerance: int) -> np.ndarray:
+    """True within `tolerance` points of the labelled anomaly (UCR scoring, KDD Cup 2021:
+    +-100 original points, i.e. +-10 points after x10 downsampling). One anomaly per series."""
+    anomaly = np.flatnonzero(labels)
+    near = np.zeros(len(labels), dtype=bool)
+    near[max(anomaly[0] - tolerance, 0) : anomaly[-1] + tolerance + 1] = True
+    return near
 
 
 def ucr_top1(scores: np.ndarray, near: np.ndarray) -> bool:
@@ -66,26 +68,29 @@ def ucr_top1(scores: np.ndarray, near: np.ndarray) -> bool:
 
 
 def alert_metrics(scores: np.ndarray, labels: np.ndarray, tau: float, near: np.ndarray,
-                  first: np.ndarray, anomaly_start: int, tolerance: int = 100) -> dict:
+                  factor: int = 1) -> dict:
     """Alerting with a threshold `tau` fixed without labels: alert where score > tau.
 
     precision/recall: point-wise against the labels (no tolerance).
     detected: some alert is near the anomaly (within the UCR tolerance).
     false_alarms: runs of consecutive alerts that are entirely outside the tolerance range.
-    delay: original index of the first alert near the anomaly minus the anomaly start
-    (negative = before the labelled start, at most `tolerance` points early).
+    delay: first alert near the anomaly minus the anomaly start, in original points
+    (x `factor` after downsampling; negative = before the labelled start).
     """
     alert = scores > tau
     actual = labels > 0
     tp = np.sum(alert & actual)
     hits = np.flatnonzero(alert & near)
-    delay = None
-    if hits.size:
-        delay = int(max(first[hits[0]], anomaly_start - tolerance) - anomaly_start)
     return {
         "precision": tp / alert.sum() if alert.any() else float("nan"),
         "recall": tp / actual.sum(),
         "detected": bool(hits.size),
         "false_alarms": sum(not near[s:e].any() for s, e in segments(alert)),
-        "delay": delay,
+        "delay": int((hits[0] - np.flatnonzero(actual)[0]) * factor) if hits.size else None,
     }
+
+
+def p_value(value: float, null_values: np.ndarray) -> float:
+    """Empirical p-value: share of random runs scoring at least as well, counting the method
+    itself as one more draw so that p is never 0 (smallest value 1 / (N + 1))."""
+    return (1 + np.sum(np.asarray(null_values) >= value)) / (1 + len(null_values))

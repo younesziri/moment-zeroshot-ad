@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from zsad.data import block_to_original, downsample_max, load_ucr, prepare, unwindow, windows
+from zsad.data import downsample_max, load_ucr, prepare, unwindow, windows
 
 DATA = Path(__file__).parents[1] / "data" / "198_UCR_Anomaly_tiltAPB2_50000_124159_124985.out"
 
@@ -23,22 +23,6 @@ def test_downsample_adds_a_full_block_when_already_a_multiple():
     v, y, padding = downsample_max(np.arange(1, 21, dtype=float), np.zeros(20, dtype=int))
     assert padding == 10
     np.testing.assert_array_equal(v, [0, 10, 20])
-
-
-def test_block_to_original_matches_downsample():
-    rng = np.random.default_rng(0)
-    values = rng.uniform(1, 2, size=137)  # positive, so zero padding never wins the max
-    v, _, padding = downsample_max(values, np.zeros(137, dtype=int))
-    for i in range(len(v)):
-        first, last = block_to_original(i, 10, padding)
-        assert last - first == 9
-        assert v[i] == values[max(first, 0) : last + 1].max()
-    assert block_to_original(len(v) - 1, 10, padding)[1] == len(values) - 1
-
-
-def test_block_to_original_offset():
-    # A segment that started at original index 50000, with padding 3: block 0 covers [49997, 50006].
-    assert block_to_original(0, 10, 3, offset=50000) == (49997, 50006)
 
 
 def test_load_ucr_tiltapb2():

@@ -57,8 +57,7 @@ def downsample_max(values: np.ndarray, labels: np.ndarray, factor: int = 10):
     The series is left-padded with zeros to a multiple of `factor`. Like the original, the
     padding is a full block when the length is already a multiple of `factor`.
 
-    Returns (values, labels, padding). Downsampled point i covers original indices
-    [i * factor - padding, i * factor - padding + factor - 1] of the input.
+    Returns (values, labels, padding).
     """
     padding = factor - len(values) % factor
     v = np.pad(values, (padding, 0)).reshape(-1, factor).max(axis=1)
@@ -112,10 +111,3 @@ def unwindow(per_window: np.ndarray, length: int) -> np.ndarray:
     tail = length - n_full * size
     out = per_window[:n_full].ravel()
     return np.concatenate([out, per_window[-1, size - tail :]]) if tail else out
-
-
-def block_to_original(i: np.ndarray | int, factor: int, padding: int, offset: int = 0):
-    """Original-index range [first, last] covered by downsampled point(s) i.
-    `offset` is the original index where the downsampled segment started."""
-    first = np.asarray(i) * factor - padding + offset
-    return first, first + factor - 1

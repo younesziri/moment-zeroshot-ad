@@ -2,9 +2,8 @@ import numpy as np
 import pytest
 from momentfm.utils.anomaly_detection_metrics import adjbestf1
 
-from zsad.data import block_to_original
 from zsad.metrics import (
-    adjusted_best_f1, alert_metrics, best_f1, near_anomaly, point_adjust, segments, ucr_top1,
+    adjusted_best_f1, alert_metrics, best_f1, near_anomaly, p_value, point_adjust, segments, ucr_top1,
 )
 
 
@@ -60,12 +59,16 @@ def test_best_f1_perfect_and_no_point_adjust():
     assert best_f1(labels, lucky) == pytest.approx(2 / 11)
 
 
+def _one_anomaly():
+    # 200 downsampled points (x10), anomaly at point 100; UCR tolerance 100 original points = 10 here.
+    labels = np.zeros(200, dtype=int)
+    labels[100] = 1
+    return labels, near_anomaly(labels, tolerance=10)
+
+
 def test_near_anomaly_tolerance_edges():
-    # Blocks of 10, no padding: anomaly at original [1000, 1009], tolerance range [900, 1109].
-    first, last = block_to_original(np.arange(200), 10, 0)
-    near = near_anomaly(first, last, 1000, 1009)
-    assert not near[89] and near[90]  # [890, 899] is outside, [900, 909] touches 900
-    assert near[110] and not near[111]  # [1100, 1109] touches 1109, [1110, 1119] is outside
+    _, near = _one_anomaly()
+    assert not near[89] and near[90] and near[110] and not near[111]
     scores = np.zeros(200)
     scores[90] = 1.0
     assert ucr_top1(scores, near)
@@ -74,25 +77,25 @@ def test_near_anomaly_tolerance_edges():
 
 
 def test_alert_metrics_hand_example():
-    first, last = block_to_original(np.arange(200), 10, 0)
-    near = near_anomaly(first, last, 1000, 1009)
-    labels = np.zeros(200, dtype=int)
-    labels[100] = 1
+    labels, near = _one_anomaly()
     scores = np.zeros(200)
     scores[[5, 6, 30, 95, 96, 100]] = 1.0  # two far events, one early event near, one hit
-    m = alert_metrics(scores, labels, tau=0.5, near=near, first=first, anomaly_start=1000)
+    m = alert_metrics(scores, labels, tau=0.5, near=near, factor=10)
     assert m["detected"]
     assert m["false_alarms"] == 2  # [5, 6] and [30]; [95, 96] is within the tolerance
-    assert m["delay"] == 950 - 1000  # first alert near the anomaly is block 95
+    assert m["delay"] == (95 - 100) * 10  # 50 original points before the labelled start
     assert m["precision"] == pytest.approx(1 / 6)
     assert m["recall"] == 1.0
 
 
 def test_alert_metrics_no_alert():
-    first, last = block_to_original(np.arange(200), 10, 0)
-    near = near_anomaly(first, last, 1000, 1009)
-    labels = np.zeros(200, dtype=int)
-    labels[100] = 1
-    m = alert_metrics(np.zeros(200), labels, tau=0.5, near=near, first=first, anomaly_start=1000)
+    labels, near = _one_anomaly()
+    m = alert_metrics(np.zeros(200), labels, tau=0.5, near=near)
     assert not m["detected"] and m["false_alarms"] == 0 and m["delay"] is None
     assert np.isnan(m["precision"]) and m["recall"] == 0.0
+
+
+def test_p_value():
+    null = np.arange(10.0)  # 0..9
+    assert p_value(9.0, null) == 2 / 11  # one random run (9) is at least as good, plus the method
+    assert p_value(100.0, null) == 1 / 11  # better than all: smallest possible p, never 0
