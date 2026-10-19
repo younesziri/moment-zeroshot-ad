@@ -1,4 +1,12 @@
-"""Loading UCR Anomaly Archive series and the paper's downsampling."""
+"""Loading a UCR series the way the authors' tutorial does (moment repo, tutorials/
+anomaly_detection.ipynb and momentfm/data/anomaly_detection_dataset.py), as plain functions.
+
+Differences from the tutorial, each deliberate:
+  - the file has no header row, so we read it with header=None (the tutorial drops the first point);
+  - the train part is split into fit and calibration, with the paper's ratio, so that k-NN has
+    training data and the alert threshold can be set without labels;
+  - optional x10 max-pooling of each split, as in the paper's research code (Table 22).
+"""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -56,6 +64,54 @@ def downsample_max(values: np.ndarray, labels: np.ndarray, factor: int = 10):
     v = np.pad(values, (padding, 0)).reshape(-1, factor).max(axis=1)
     y = np.pad(labels, (padding, 0)).reshape(-1, factor).max(axis=1)
     return v, y, padding
+
+
+def prepare(path: str | Path, factor: int = 1) -> dict:
+    """Scaled fit, calibration and test parts of a UCR series, plus the test labels.
+
+    Scaling uses the mean and std of the whole train part [0, train_end), as the tutorial does.
+    fit = [0, fit_end), calibration = [fit_end, train_end), test = [train_end, end), where
+    fit_end = int(0.6 / (0.6 + 0.1) * train_end) is the split of the authors' zero-shot config.
+    With factor > 1, each part is max-pooled separately, as in the paper's code.
+    """
+    s = load_ucr(path)
+    train = s.values[: s.train_end]
+    x = (s.values - train.mean()) / train.std()
+    fit_end = int(0.6 / (0.6 + 0.1) * s.train_end)
+    parts = {"fit": slice(0, fit_end), "cal": slice(fit_end, s.train_end), "test": slice(s.train_end, None)}
+    out = {}
+    for name, part in parts.items():
+        values, labels = x[part], s.labels[part]
+        if factor > 1:
+            values, labels, _ = downsample_max(values, labels, factor)
+        out[name] = values
+    out["labels"] = labels  # test labels (fit and calibration are anomaly-free)
+    return out
+
+
+WINDOW = 512  # MOMENT's input length
+
+
+def windows(x: np.ndarray, size: int = WINDOW) -> np.ndarray:
+    """Non-overlapping windows of `size` points; the last window is aligned to the end of the
+    series, so it may overlap the previous one (the tutorial's dataset does the same)."""
+    if len(x) < size:
+        raise ValueError(f"series of length {len(x)} is shorter than one window ({size})")
+    starts = list(range(0, len(x) - size + 1, size))
+    if starts[-1] + size < len(x):
+        starts.append(len(x) - size)
+    return np.stack([x[s : s + size] for s in starts])
+
+
+def unwindow(per_window: np.ndarray, length: int) -> np.ndarray:
+    """Back to one value per point, as the tutorial does: keep all full windows, then only the
+    points of the last window that no earlier window covered. Unlike the tutorial's version,
+    this also works when `length` is an exact multiple of the window size."""
+    size = per_window.shape[1]
+    n_full = length // size
+    tail = length - n_full * size
+    out = per_window[:n_full].ravel()
+    return np.concatenate([out, per_window[-1, size - tail :]]) if tail else out
 
 
 def block_to_original(i: np.ndarray | int, factor: int, padding: int, offset: int = 0):

@@ -1,8 +1,9 @@
 from pathlib import Path
 
 import numpy as np
+import pytest
 
-from zsad.data import block_to_original, downsample_max, load_ucr
+from zsad.data import block_to_original, downsample_max, load_ucr, prepare, unwindow, windows
 
 DATA = Path(__file__).parents[1] / "data" / "198_UCR_Anomaly_tiltAPB2_50000_124159_124985.out"
 
@@ -48,3 +49,38 @@ def test_load_ucr_tiltapb2():
     assert s.train_end == 50000
     assert (s.anomaly_start, s.anomaly_end) == (124159, 124984)
     assert s.labels.sum() == 124984 - 124159 + 1
+
+
+def test_prepare_full_resolution():
+    d = prepare(DATA)
+    assert (len(d["fit"]), len(d["cal"]), len(d["test"])) == (42857, 7143, 78767)  # 6/7 of 50000
+    train = np.concatenate([d["fit"], d["cal"]])  # scaled with the whole train part's mean and std
+    assert abs(train.mean()) < 1e-9 and abs(train.std() - 1) < 1e-9
+    assert len(d["labels"]) == len(d["test"]) and d["labels"].sum() == 826
+
+
+def test_prepare_downsampled():
+    d = prepare(DATA, factor=10)
+    # Each part is max-pooled separately: 42857 -> 4286, 7143 -> 715, 78767 -> 7877 blocks.
+    assert (len(d["fit"]), len(d["cal"]), len(d["test"])) == (4286, 715, 7877)
+    assert d["labels"].sum() == 83  # test blocks 7416..7498 touch the anomaly
+
+
+def test_windows_last_one_aligned_to_the_end():
+    x = np.arange(1100.0)
+    w = windows(x)
+    assert w.shape == (3, 512) and w[2, 0] == 588 and w[2, -1] == 1099
+    assert windows(np.arange(1024.0)).shape == (2, 512)  # exact multiple: no duplicated window
+    with pytest.raises(ValueError):
+        windows(np.arange(511.0))
+
+
+@pytest.mark.parametrize("length", [512, 1024, 1100, 2000])
+def test_windows_then_unwindow_is_identity(length):
+    x = np.random.default_rng(0).normal(size=length)
+    np.testing.assert_array_equal(unwindow(windows(x), length), x)
+
+
+def test_unwindow_keeps_earlier_window_in_overlap():
+    # Windows of 4 over 6 points: the second window covers points 2..5, of which only 4..5 are new.
+    np.testing.assert_array_equal(unwindow(np.array([[1.0, 1, 1, 1], [2.0, 2, 2, 2]]), 6), [1, 1, 1, 1, 2, 2])
