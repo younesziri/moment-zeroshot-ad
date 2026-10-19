@@ -15,3 +15,7 @@ wheels/
 # Not redistributed
 papers/
 data/ucr/
+
+# Third-party material, not redistributed
+MVA_course_*.pdf
+anomaly_detection.ipynb
