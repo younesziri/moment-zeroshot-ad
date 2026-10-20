@@ -6,20 +6,21 @@ chance. **Work in progress**: so far, one series; the 248-series study is next.
 
 ## Summary (one series: tiltAPB2, the series of the authors' own tutorial)
 
-1. **The paper's number reproduces, but the paper's metric can't tell it from chance.** Under the
-   paper's ×10 protocol, MOMENT-1-large gets an adjusted best F1 of 0.960 (paper: 0.96, Table 22);
-   random squared-Gaussian scores, heavy-tailed like squared errors, reach at least 0.960 in 8% of
-   draws (p = 0.08). At full resolution (the tutorial's protocol) they average 0.945, above MOMENT's
-   0.922 (p = 0.74). Against uniform random scores MOMENT is significant (p = 0.005 at ×10, 0.006 at
-   full resolution): the verdict depends on the *shape* of the score distribution, not only on the
-   ranking. With every score replaced by its rank, MOMENT gets 0.684 against 0.680 for chance at full
-   resolution, and 0.689 against 0.583 at ×10.
-2. **Under stricter metrics, MOMENT's signal is real but small, and doesn't give a useful alert.**
-   At full resolution its AUC-PR is 0.014 against 0.011 for chance (p ≤ 0.001), its highest score is
-   not near the anomaly, and a threshold set without labels raises 12 false alarms but never fires on
-   the anomaly. k-NN has the stronger signal at full resolution (AUC-PR 0.022) and catches the
-   anomaly, with 276 false alarms; under the ×10 protocol the order reverses (MOMENT 0.027, k-NN
-   0.019). One series cannot rank detectors.
+1. **The paper's number reproduces, but on this series the paper's metric is weak evidence of
+   detection.** Under the paper's ×10 protocol, MOMENT-1-large gets an adjusted best F1 of 0.960
+   (paper: 0.96, Table 22). Our reference chance level is MOMENT's own scores slid in time (same
+   values, same clustering, alignment with the anomaly broken): they reach at least 0.960 in about 6%
+   of shifts (p = 0.057). At full resolution (the tutorial's protocol) MOMENT gets 0.922 and its
+   shifted scores average 0.841 (p = 0.38). The metric depends on the *shape* of the score
+   distribution, not only on the ranking: at full resolution, random uniform scores average 0.679 on
+   it and random squared-Gaussian scores 0.945.
+2. **Under stricter metrics, MOMENT's signal depends on the resolution, and it doesn't give a useful
+   alert.** At full resolution its point-wise best F1 (0.050) and AUC-PR (0.014) are above its own
+   shifted scores (p ≤ 0.001 for both); under the ×10 protocol only borderline (AUC-PR 0.027,
+   p = 0.06). Its highest score is not near the anomaly, and a threshold set without labels raises 12
+   false alarms but never fires on the anomaly. k-NN has a higher AUC-PR at full resolution (0.022),
+   but it is not clearly above its own shifted scores (p = 0.056), and it catches the anomaly (with 276
+   false alarms) in 57% of its own shifts too. One series cannot rank detectors.
 3. **The released setup has pitfalls.** With momentfm's pinned dependencies the model loads with
    dropout on, and the tutorial doesn't switch it off; the published small and base checkpoints
    contain a reconstruction head that matches momentfm's initialisation exactly, so only large works
@@ -48,12 +49,14 @@ one lucky point, and with a threshold chosen without the labels?
 - **Splits**: train part [0, 50000) cut into fit [0, 42857) and calibration [42857, 50000) with the
   paper's 6/7 ratio; test [50000, end). k-NN is trained on the fit part, so unlike MOMENT it is not
   zero-shot. The calibration part only sets the alert threshold τ (its maximum score); no labels are used.
-- **Baselines**: k-NN as in the authors' code (5 neighbours, 512-point windows); random scores,
-  uniform and squared Gaussian, 1000 draws each, as the chance level.
+- **Baselines**: k-NN as in the authors' code (5 neighbours, 512-point windows). Chance: each
+  detector's own test scores circularly shifted in time (1000 random offsets, never closer than the
+  anomaly plus its tolerance), the reference; and random scores, uniform and squared Gaussian
+  (1000 draws each), to show how the paper's metric depends on the shape of the scores.
 - **Metrics**: the paper's adjusted best F1 (our implementation is tested equal to momentfm's), the
   same on rank scores, point-wise best F1, AUC-PR, AUC-ROC, UCR top-1 (highest score within
   ±100 points of the anomaly), and alerting at τ (detected, false-alarm events, delay). Empirical
-  p-value against each random baseline: (1 + #draws scoring at least as well) / 1001.
+  p-value against each chance baseline: (1 + #draws scoring at least as well) / 1001.
 
 ## Results
 
@@ -66,24 +69,29 @@ produced by `scripts/run_case_study.py`:
 | k-NN (fit part) | 0.738 | 0.676 | 0.057 | 0.022 | 0.711 | no |
 | Random uniform (1000 draws) | 0.679 ± 0.025 | 0.679 ± 0.023 | 0.022 ± 0.001 | 0.011 ± 0.000 | 0.500 ± 0.010 | 9/1000 |
 | Random squared Gaussian (1000 draws) | 0.945 ± 0.047 | 0.680 ± 0.032 | 0.022 ± 0.001 | 0.011 ± 0.000 | 0.500 ± 0.010 | 13/1000 |
+| MOMENT-1-large, circular shift (1000 shifts) | 0.841 ± 0.132 | 0.657 ± 0.071 | 0.025 ± 0.004 | 0.011 ± 0.001 | 0.500 ± 0.037 | 13/1000 |
+| k-NN, circular shift (1000 shifts) | 0.468 ± 0.407 | 0.380 ± 0.300 | 0.032 ± 0.012 | 0.013 ± 0.006 | 0.485 ± 0.214 | 10/1000 |
 
-Empirical p-values, against random uniform / random squared Gaussian (0.001 is the smallest value
-1000 draws allow, 1/1001, so read it as p ≤ 0.001):
+Empirical p-values, against random uniform / random squared Gaussian / **the method's own scores,
+circularly shifted** (the reference). 0.001 is the smallest value 1000 draws allow (1/1001), so read
+it as p ≤ 0.001:
 
 | Method | Adj. best F1 (paper) | Same, rank scores | Best F1, point-wise | AUC-PR | AUC-ROC |
 |---|---|---|---|---|---|
-| MOMENT-1-large | 0.006 / 0.741 | 0.006 / 0.011 | 0.001 / 0.001 | 0.001 / 0.001 | 0.005 / 0.005 |
-| k-NN (fit part) | 0.006 / 1.000 | 0.828 / 0.856 | 0.001 / 0.001 | 0.001 / 0.001 | 0.001 / 0.001 |
+| MOMENT-1-large | 0.006 / 0.741 / **0.383** | 0.006 / 0.011 / **0.012** | 0.001 / 0.001 / **0.001** | 0.001 / 0.001 / **0.001** | 0.005 / 0.005 / **0.278** |
+| k-NN (fit part) | 0.006 / 1.000 / **0.440** | 0.828 / 0.856 / **0.434** | 0.001 / 0.001 / **0.025** | 0.001 / 0.001 / **0.056** | 0.001 / 0.001 / **0.078** |
 
 Alerting at τ = max score on the calibration part (no labels): MOMENT does not detect the anomaly
-and raises 12 false-alarm events; k-NN detects it 25 points after its start, with 276 false-alarm
-events; random scores detect it in 112 of 1000 draws, with about 11 false-alarm events each.
+and raises 12 false-alarm events; its shifted scores detect it in 136 of 1000 shifts, with about 12
+false-alarm events each. k-NN detects it 25 points after its start, with 276 false-alarm events; its
+shifted scores detect it in 568 of 1000 shifts, with about 283 false-alarm events each.
 
 ×10 max-pooled (the paper's protocol), from [`results/tiltAPB2_x10.md`](results/tiltAPB2_x10.md):
-MOMENT-1-large's adjusted best F1 is 0.960 (paper: 0.96); 0.689 on rank scores; AUC-PR 0.027
-against 0.012 for chance. On the paper's metric, random squared-Gaussian scores average
-0.696 ± 0.195 and reach at least 0.960 in about 8% of draws (p = 0.079). k-NN's AUC-PR is 0.019:
-below MOMENT at ×10, above it at full resolution (0.022 vs 0.014).
+MOMENT-1-large's adjusted best F1 is 0.960 (paper: 0.96); its shifted scores average 0.512 ± 0.221
+and reach 0.960 in about 6% of shifts (p = 0.057). Against its own shifted scores, its p-values are
+0.068 on rank scores, 0.094 for point-wise best F1, 0.060 for AUC-PR (0.027) and 0.014 for AUC-ROC.
+k-NN's AUC-PR is 0.019 (p = 0.116): below MOMENT at ×10, above it at full resolution (0.022 vs
+0.014).
 
 ### How to read these numbers
 
@@ -98,8 +106,15 @@ below MOMENT at ×10, above it at full resolution (0.022 vs 0.014).
   the anomaly, F1 is about 0.95.
 - **Shape, not scale.** Multiplying or shifting the scores moves all 100 thresholds with them and
   changes nothing; only a non-linear reshaping (squaring, ranking) changes the result. That is why
-  two random baselines are needed, and why the squared-Gaussian one is the relevant null for
-  MOMENT, whose scores are squared errors.
+  two random baselines are shown, and why the reference chance level for each detector uses its own
+  scores.
+- **Why a circular shift.** iid random scores (or a shuffle) scatter the high scores, while a
+  detector's high scores come in clusters (here, on heartbeat peaks). Scattered high scores give many
+  independent chances to land in the anomaly, which is harsh on the detector under point-adjusted F1;
+  they also make AUC-type metrics vary less than clustered scores do, which flatters the detector.
+  Sliding the detector's own score series in time keeps the values and the clustering and only breaks
+  the alignment with the anomaly. The difference is large: MOMENT's ×10 AUC-PR has p = 0.003
+  against squared-Gaussian noise but p = 0.060 against its own shifted scores.
 - **Rank scores** replace each score by its rank: the ordering, and so every possible alert, is
   unchanged, but the shape is gone. Uniform and squared-Gaussian scores then agree (0.679, 0.680),
   and MOMENT is barely above them (0.684).
@@ -141,8 +156,8 @@ From [`results/moment_diagnostics.md`](results/moment_diagnostics.md), produced 
   train/validation/test parts for pretraining, and the authors' tutorial says MOMENT was not exposed
   to the test part of this series; the anomaly-free part may have been seen. Not verified; it matters
   for what "zero-shot" means here.
-- **The random baseline is iid noise.** Real detectors produce bursty scores, so p-values against
-  iid noise are probably optimistic for them.
+- **Approximate p-values.** The circular shift treats every offset of the score series as equally
+  plausible, and all 1000 shifts come from one series; the p-values are indicative, not exact.
 - **Released weights, not the paper's checkpoint.** The paper's zero-shot code loads an internal
   pretraining checkpoint (`charmed-bee-241`) with the positional embedding off; we use the public
   weights.
@@ -155,7 +170,7 @@ From [`results/moment_diagnostics.md`](results/moment_diagnostics.md), produced 
 ```bash
 uv sync                                                  # Python 3.11, pinned dependencies
 uv run pytest                                            # 55 tests (MOMENT tests need the weights)
-uv run python scripts/run_case_study.py                  # full resolution, ~9 min on an M2
+uv run python scripts/run_case_study.py                  # full resolution, ~11 min on an M2
 uv run python scripts/run_case_study.py --factor 10      # paper protocol, ~1 min
 uv run python scripts/diagnose_moment.py                 # released checkpoints, ~2 min
 ```

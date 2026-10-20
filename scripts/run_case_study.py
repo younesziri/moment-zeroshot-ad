@@ -71,15 +71,19 @@ def tables(runs: pd.DataFrame) -> str:
     groups = list(runs.groupby("method", sort=False))
     scores = markdown([[m] + [summarise(g[c]) for c in [*SCORE_METRICS, "ucr_top1"]] for m, g in groups],
                       ["Method", *SCORE_METRICS.values(), "UCR top-1"])
-    nulls = [runs.loc[runs["method"] == name] for name in RANDOM.values()]
-    p_rows = [[m] + [" / ".join(f"{p_value(g[c].iloc[0], n[c]):.3f}" for n in nulls) for c in SCORE_METRICS]
-              for m, g in groups if len(g) == 1]
+    p_rows = []
+    for m, g in groups:
+        if len(g) == 1:  # a detector: compare with the two random baselines and its own shifted scores
+            nulls = [runs.loc[runs["method"] == name] for name in [*RANDOM.values(), f"{m}, circular shift"]]
+            p_rows.append([m] + [" / ".join(f"{p_value(g[c].iloc[0], n[c]):.3f}" for n in nulls)
+                                 for c in SCORE_METRICS])
     p_values = markdown(p_rows, ["Method", *SCORE_METRICS.values()])
     alerts = markdown([[m] + [summarise(g[c]) for c in ALERT_METRICS] for m, g in groups],
                       ["Method", *ALERT_METRICS.values()])
     return (f"## Scores\n\nRandom rows: mean ± sd over {N_DRAWS} draws; UCR top-1: draws that hit.\n\n{scores}"
-            f"\n## Empirical p-values\n\np against random uniform / random squared Gaussian: "
-            f"(1 + #draws scoring at least as well) / (1 + {N_DRAWS}).\n\n{p_values}"
+            f"\n## Empirical p-values\n\np against random uniform / random squared Gaussian / the method's own "
+            f"scores circularly shifted (the reference null: same values, same clustering, only the alignment "
+            f"with the anomaly is broken): (1 + #draws scoring at least as well) / (1 + {N_DRAWS}).\n\n{p_values}"
             f"\n## Alerting at τ = max score on the calibration part (no labels)\n\n"
             f"Detected and false alarms use the UCR tolerance (±{TOLERANCE} original points). "
             f"Random rows: mean ± sd; Detected: draws that hit; Delay: mean over those draws.\n\n{alerts}")
@@ -120,9 +124,18 @@ def main():
     model = load_moment("large", device)
     cal_score, _ = moment_scores(model, d["cal"], device)
     score, reconstruction = moment_scores(model, d["test"], device)
-    rows = [{"method": "MOMENT-1-large", **evaluate(cal_score, score, labels, near, factor)}]
-    rows.append({"method": "k-NN (fit part)", **evaluate(knn_scores(d["fit"], d["cal"]),
-                                                         knn_scores(d["fit"], d["test"]), labels, near, factor)})
+    detectors = {"MOMENT-1-large": (cal_score, score),
+                 "k-NN (fit part)": (knn_scores(d["fit"], d["cal"]), knn_scores(d["fit"], d["test"]))}
+    rows = [{"method": name, **evaluate(cal, test, labels, near, factor)} for name, (cal, test) in detectors.items()]
+    # Chance with the detector's own scores: slide the whole score series in time (wrapping around),
+    # which keeps the values and their clustering and only breaks the alignment with the anomaly.
+    # Offsets smaller than the anomaly plus its tolerance would nearly keep the real alignment.
+    n, margin = len(labels), labels.sum() + 2 * (TOLERANCE // factor)
+    offsets = np.random.default_rng(0).integers(margin, n - margin + 1, size=N_DRAWS)
+    for name, (cal, test) in detectors.items():
+        for seed, offset in enumerate(offsets):
+            rows.append({"method": f"{name}, circular shift", "seed": seed,
+                         **evaluate(cal, np.roll(test, offset), labels, near, factor)})
     n_cal = len(d["cal"])
     for kind, name in RANDOM.items():
         for seed in range(N_DRAWS):
