@@ -1,9 +1,11 @@
 import numpy as np
 import pytest
 from momentfm.utils.anomaly_detection_metrics import adjbestf1
+from sklearn.metrics import average_precision_score, roc_auc_score
 
 from zsad.metrics import (
-    adjusted_best_f1, alert_metrics, best_f1, near_anomaly, p_value, point_adjust, segments, ucr_top1,
+    adjusted_best_f1, alert_metrics, best_f1, near_anomaly, p_value, point_adjust, segments, top1_chance,
+    ucr_top1,
 )
 
 
@@ -99,3 +101,36 @@ def test_p_value():
     null = np.arange(10.0)  # 0..9
     assert p_value(9.0, null) == 2 / 11  # one random run (9) is at least as good, plus the method
     assert p_value(100.0, null) == 1 / 11  # better than all: smallest possible p, never 0
+
+
+def test_top1_chance_is_exact_over_all_rotations():
+    # Over every rotation of a score series, the maximum lands on each position once.
+    labels = _labels(300, [(100, 110)])
+    near = near_anomaly(labels, tolerance=5)
+    scores = np.random.default_rng(0).normal(size=300)
+    hits = sum(ucr_top1(np.roll(scores, o), near) for o in range(300))
+    assert hits / 300 == top1_chance(near) == near.sum() / 300
+
+
+def _expected_ap(n: int, p: int) -> float:
+    """Exact mean average precision of a random ranking of n points with p positives: the anomaly
+    fraction p/n is only its large-p limit (with p = 1 it is H_n / n, about ln(n)/n)."""
+    h = np.sum(1.0 / np.arange(1, n + 1))
+    return (h + (p - 1) * (n - h) / (n - 1)) / n
+
+
+@pytest.mark.parametrize("ranges", [[(100, 130)], [(150, 151)]])  # a 30-point and a one-point anomaly
+def test_random_scores_reproduce_chance_levels(ranges):
+    n, draws = 300, 4000
+    labels = _labels(n, ranges)
+    near = near_anomaly(labels, tolerance=5)
+    rng = np.random.default_rng(1)
+    roc, ap, top1 = [], [], []
+    for _ in range(draws):
+        s = rng.uniform(size=n)
+        roc.append(roc_auc_score(labels, s))
+        ap.append(average_precision_score(labels, s))
+        top1.append(ucr_top1(s, near))
+    for values, expected in [(roc, 0.5), (ap, _expected_ap(n, labels.sum())), (top1, top1_chance(near))]:
+        values = np.asarray(values, dtype=float)
+        assert abs(values.mean() - expected) < 4 * values.std() / np.sqrt(draws)  # within 4 standard errors

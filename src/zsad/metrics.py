@@ -67,6 +67,12 @@ def ucr_top1(scores: np.ndarray, near: np.ndarray) -> bool:
     return bool(near[np.argmax(scores)])
 
 
+def top1_chance(near: np.ndarray) -> float:
+    """Exact top-1 chance level |Z| / n, the same for every detector: over all n rotations of a
+    score series, its maximum lands on every position once, so a hit has probability |Z| / n."""
+    return float(np.mean(near))
+
+
 def alert_metrics(scores: np.ndarray, labels: np.ndarray, tau: float, near: np.ndarray,
                   factor: int = 1) -> dict:
     """Alerting with a threshold `tau` fixed without labels: alert where score > tau.

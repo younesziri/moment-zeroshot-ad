@@ -1,6 +1,6 @@
 # Analysis plan: the 248-series study
 
-Written 19/10/2026   before any run on the 248 series.
+Planned 19/10/2026   before any run on the 248 series.
 
 The study answers three questions, in this order:
 
@@ -243,17 +243,14 @@ All from `src/zsad/metrics.py`, computed on the test part at the configuration's
 - **Number of shifts for VUS-PR**: VUS is much slower than the other metrics. Before fixing it, VUS-PR
   is timed on tiltAPB2 and the projected total runtime is reported; 100 shifts is the default.
 
-## 7. Exploratory analyses
+## 7. Exploratorry analyses
 
-Fixed now, reported in full whatever the results, never used for confirmatory claims; their
-p-values are marked unadjusted. Any exploratory result that stands out is stated as a hypothesis for
-replication on another benchmark, not as a finding. 
 
 - AUC-PR
 - AUC-ROC
 - Adjusted best F1 on rank scores 
-- The i.i.d. random null alongside the circular shift: the number of series where they disagree at
-  p ≤ 0.05.
+- The iid random null alongside the circular shift: the number of series where they disagree at
+  p ≤ 0.05.\
 - MOMENT's excess on VUS-PR against anomaly length, series length, domain (from the file name) and
   Distorted vs not
 - Full resolution on 50 series chosen with a fixed seed.
@@ -263,4 +260,65 @@ replication on another benchmark, not as a finding.
 
 ## Deviations from this plan
 
-Nada
+### D1, 21/10/2026, before any run: a standard random baseline (descriptive)
+
+- **What**: i.i.d. uniform random scores in [0, 1), one per point, on the calibration and test
+  parts; 10 draws per series (seed = 1000 × series ID + draw number). Scored with every metric of
+  sections 4 and 5, in both configurations, at each configuration's resolution; τ = max of its own
+  calibration scores, as for the detectors.
+- **Reported**: as a "Random" row next to the detectors in every summary, including the Table 7
+  format under "paper-faithful": per series, the mean over the 10 draws; across series, mean,
+  median and standard deviation.
+- **Not used**: in any test, in ranks or wins/losses, or as a null. The circular shift of each
+  detector's own scores (section 6) stays the reference for "better than chance". It is also distinct
+  from the exploratory i.i.d. null of section 7, which is a per-series test.
+- **Caveat**: on shape-dependent metrics (adjusted best F1), the value depends on the distribution of
+  the random scores (the tiltAPB2 case study); uniform is the convention, not a neutral choice.
+- *Why: the usual reference in the literature (e.g. Kim et al. 2022): what a detector with no
+  information scores on each metric, which puts numbers like Table 7's 0.585 in context.*
+
+### D2, 21/10/2026, before any run: exact top-1 chance level
+
+- **What**: for top-1, the chance level of a series is the exact value |Z|/n, where Z is the set of
+  test positions within the UCR tolerance of the anomaly and n the test length (at the
+  configuration's resolution). It is the same for every detector. The Poisson-binomial test uses
+  these exact pᵢ; MOMENT vs k-NN on top-1 uses an exact McNemar test on the raw hits; no Monte Carlo
+  for top-1. Replaces the shift-based top-1 chance level of section 6.
+- *Why: over all n rotations of a score series, its highest point lands on every position once, so
+  the probability of a hit is exactly |Z|/n, whatever the detector (assuming a unique maximum; ties
+  are resolved by the first index, as in `np.argmax`). This also removes the 0-hit problem of a
+  Monte Carlo estimate, and since the chance level is shared, raw hits and excesses give the same
+  comparison.*
+
+### D3, 21/10/2026,  the circular-shift null uses all non-zero offsets
+
+- **What**: the offsets are drawn from all of 1, …, n − 1 (the standard rotation test): 100 drawn
+  uniformly without replacement, seed = series ID. Replaces the exclusion of offsets within the
+  anomaly length plus one window (section 6).
+- *Why: excluding small offsets removes exactly the shifts that keep a hitting detector's high scores
+  near the anomaly, so the chance level then depends on whether the detector hit, and per-series
+  p-values can become anti-conservative. The rotation test is valid only over the full set of
+  rotations.*
+
+### D4, 21/10/2026 pairing for the null validity check
+
+- **What**: each series is paired with one series from a different source group (a fixed pairing,
+  seeded). Its scores for the target series are a contiguous segment of the paired series' MOMENT
+  test scores, of the target's test length, starting at the beginning of the paired test part and
+  wrapping around if it is shorter.
+- *Why: the scores then come from a real detector, with realistic shape and clustering, but cannot
+  know where the target's anomaly is.*
+
+### D5, 21/10/2026,: "domain" in the exploratory list
+
+- **What**: "domain (from the file name)" in section 7 is replaced by the 26 source groups of
+  section 1, with descriptive per-group means only (no test).
+- *Why: the file names give a source, not a domain; a hand-made domain mapping would be a choice
+  made without a rule.*
+
+### D6, 22/10/2026: tiltAPB2 case study recomputed
+
+- **What**: the tiltAPB2 case study's circular-shift p-values are recomputed with all non-zero
+  offsets (D3), and the README's numbers updated. The case study keeps 1000 shifts, drawn without
+  replacement, seed = 198 (its series ID).
+- *Why: the case study used the offset exclusion that D3 removes.*
