@@ -129,9 +129,9 @@ def main():
     rows = [{"method": name, **evaluate(cal, test, labels, near, factor)} for name, (cal, test) in detectors.items()]
     # Chance with the detector's own scores: slide the whole score series in time (wrapping around),
     # which keeps the values and their clustering and only breaks the alignment with the anomaly.
-    # Offsets smaller than the anomaly plus its tolerance would nearly keep the real alignment.
-    n, margin = len(labels), labels.sum() + 2 * (TOLERANCE // factor)
-    offsets = np.random.default_rng(0).integers(margin, n - margin + 1, size=N_DRAWS)
+    # All non-zero offsets (the standard rotation test, analysis plan D3): excluding small ones would
+    # remove exactly the shifts that keep a hitting detector near the anomaly. Seed = series ID.
+    offsets = np.random.default_rng(198).choice(np.arange(1, len(labels)), size=N_DRAWS, replace=False)
     for name, (cal, test) in detectors.items():
         for seed, offset in enumerate(offsets):
             rows.append({"method": f"{name}, circular shift", "seed": seed,
