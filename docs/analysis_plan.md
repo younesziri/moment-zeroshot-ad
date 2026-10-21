@@ -322,3 +322,30 @@ All from `src/zsad/metrics.py`, computed on the test part at the configuration's
   offsets (D3), and the README's numbers updated. The case study keeps 1000 shifts, drawn without
   replacement, seed = 198 (its series ID).
 - *Why: the case study used the offset exclusion that D3 removes.*
+
+### D7, 22/10/2026: one data source per configuration
+
+- "Consistent" uses the UCR archive for everything (values; anomaly and training end from the file
+  name, 1-based inclusive); "paper-faithful" uses TSB-UAD for everything. Replaces the label rule of
+  section 1.
+- Checked (`results/label_check.md`): values identical in 243 series; in IDs 233, 234, 236–238 a few
+  values differ, maximum difference 3.85e-34. TSB-UAD labels follow 0-based [begin, end); IDs 79,
+  108, 187 are unlabelled; ID 203 keeps the pre-correction training end (11812), which puts its
+  anomaly in the training part.
+
+### D8, 22/10/2026: series without a scorable anomaly (IDs 79, 108, 187, 203)
+
+- "Paper-faithful": scored as the authors' code scores them (adjusted best F1 = 0, VUS = NaN, row
+  dropped by their `.dropna()`); IDs listed.
+- Means under "paper-faithful": (1) as their pipeline computes them, NaN rows dropped, n printed: the
+  Table 7 comparison; (2) adjusted best F1 only, sensitivity line: mean over all 248 with these
+  series at 0.
+- "Consistent": all four scored with the archive's labels.
+- ID 202: same name in both sources, values identical, scored normally.
+
+### D9, 22/10/2026: VUS implementation and window
+
+- VUS from the authors' own code, copied unchanged with its licence into
+  `src/zsad/vus_moment_research.py` (`generate_curve`; adapted by them from TheDatumOrg/VUS); no
+  `vus` package.
+- Window: the reproduction anchors use theirs 

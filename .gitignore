@@ -19,3 +19,4 @@ data/ucr/
 # Third-party material, not redistributed
 MVA_course_*.pdf
 anomaly_detection.ipynb
+data/TSB-UAD-Public/

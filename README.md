@@ -151,6 +151,13 @@ From [`results/moment_diagnostics.md`](results/moment_diagnostics.md), produced 
 
 - **One series**, with a synthetic anomaly. Nothing here is a claim about the 248-series average
   of the paper (Table 7).
+- **What "248 series" means in Table 7 is unclear** (an observation). In the authors' data files
+  (TSB-UAD), IDs 79, 108 and 187 have no labelled anomaly and ID 203's anomaly lies in its training
+  part (`results/label_check.md`, from `scripts/check_labels.py`). For such series the authors' code
+  returns NaN for VUS and drops the row (`.dropna()`), so its means would cover fewer than 248
+  series. Table 22 cannot settle this: it has no row for resperation2 (IDs 79, 108, 187), a single
+  CHARISfive row that could be any of IDs 201–205, and a row for InternalBleeding4 (IDs 32 and 140),
+  which the code excludes from the 248.
 - **Possible pretraining overlap.** The UCR series come from the KDD21 collection, which is part of
   MOMENT's pretraining data (paper, Table 12). The paper says long series were split into
   train/validation/test parts for pretraining, and the authors' tutorial says MOMENT was not exposed
@@ -169,7 +176,7 @@ From [`results/moment_diagnostics.md`](results/moment_diagnostics.md), produced 
 
 ```bash
 uv sync                                                  # Python 3.11, pinned dependencies
-uv run pytest                                            # 58 tests (MOMENT tests need the weights)
+uv run pytest                                            # 60 tests (MOMENT tests need the weights)
 uv run python scripts/run_case_study.py                  # full resolution, ~11 min on an M2
 uv run python scripts/run_case_study.py --factor 10      # paper protocol, ~1 min
 uv run python scripts/diagnose_moment.py                 # released checkpoints, ~2 min
