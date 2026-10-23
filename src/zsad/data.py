@@ -74,17 +74,23 @@ def prepare(path: str | Path, factor: int = 1) -> dict:
     With factor > 1, each part is max-pooled separately, as in the paper's code.
     """
     s = load_ucr(path)
-    train = s.values[: s.train_end]
-    x = (s.values - train.mean()) / train.std()
-    fit_end = int(0.6 / (0.6 + 0.1) * s.train_end)
-    parts = {"fit": slice(0, fit_end), "cal": slice(fit_end, s.train_end), "test": slice(s.train_end, None)}
+    return split_parts(s.values, s.labels, s.train_end, factor)
+
+
+def split_parts(values: np.ndarray, labels: np.ndarray, train_end: int, factor: int) -> dict:
+    """The body of `prepare`, for any series: scale with the whole train part, split into fit,
+    calibration and test, max-pool each part separately when factor > 1."""
+    train = values[:train_end]
+    x = (values - train.mean()) / train.std()
+    fit_end = int(0.6 / (0.6 + 0.1) * train_end)
+    parts = {"fit": slice(0, fit_end), "cal": slice(fit_end, train_end), "test": slice(train_end, None)}
     out = {}
     for name, part in parts.items():
-        values, labels = x[part], s.labels[part]
+        v, y = x[part], labels[part]
         if factor > 1:
-            values, labels, _ = downsample_max(values, labels, factor)
-        out[name] = values
-    out["labels"] = labels  # test labels (fit and calibration are anomaly-free)
+            v, y, _ = downsample_max(v, y, factor)
+        out[name] = v
+    out["labels"] = y  # test labels (fit and calibration are anomaly-free)
     return out
 
 

@@ -22,3 +22,13 @@ def test_knn_scores_zero_on_seen_pattern_and_high_on_spike():
     x_spike[800] += 10.0
     scores = knn_scores(train, x_spike)
     assert np.argmax(scores) == 800
+
+
+def test_dominant_period():
+    from zsad.baselines import dominant_period
+
+    t = np.arange(5000)
+    assert dominant_period(np.sin(2 * np.pi * t / 50)) == (50, True)
+    assert dominant_period(np.sin(2 * np.pi * t / 2000))[0] == 512  # clipped to the upper bound
+    assert dominant_period(np.sin(2 * np.pi * t / 5)) == (16, True)  # clipped to the lower bound
+    assert dominant_period(np.arange(1000.0)) == (512, False)  # a trend: no peak, listed

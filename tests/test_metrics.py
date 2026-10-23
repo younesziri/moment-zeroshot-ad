@@ -134,3 +134,14 @@ def test_random_scores_reproduce_chance_levels(ranges):
     for values, expected in [(roc, 0.5), (ap, _expected_ap(n, labels.sum())), (top1, top1_chance(near))]:
         values = np.asarray(values, dtype=float)
         assert abs(values.mean() - expected) < 4 * values.std() / np.sqrt(draws)  # within 4 standard errors
+
+
+def test_adjusted_best_f1_vectorised_equals_momentfm_on_one_anomaly():
+    rng = np.random.default_rng(3)
+    for _ in range(200):
+        n = int(rng.integers(50, 400))
+        length = int(rng.integers(1, 30))
+        start = int(rng.integers(1, n - length))
+        labels = _labels(n, [(start, start + length)])
+        scores = rng.normal(size=n) ** 2 if rng.uniform() < 0.5 else rng.integers(0, 4, size=n).astype(float)
+        assert adjusted_best_f1(labels, scores) == adjbestf1(labels, scores)

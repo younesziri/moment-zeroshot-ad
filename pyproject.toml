@@ -9,6 +9,7 @@ dependencies = [
     "momentfm==0.1.4",
     "pandas>=2.1.0",
     "scikit-learn>=1.9.1",
+    "stumpy>=1.14.1",
 ]
 
 [dependency-groups]

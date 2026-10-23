@@ -6,6 +6,8 @@ All functions take one score per (downsampled) point; labels are 0/1.
 import numpy as np
 from sklearn.metrics import precision_recall_curve
 
+from zsad.vus_moment_research import generate_curve
+
 
 def segments(mask: np.ndarray) -> list[tuple[int, int]]:
     """(start, end) of each run of True values, end exclusive."""
@@ -42,6 +44,17 @@ def adjusted_best_f1(labels: np.ndarray, scores: np.ndarray, n_thresholds: int =
     `n_thresholds` thresholds spaced linearly from min to max score. Uses the labels to pick
     the threshold, and the linear grid makes it depend on the score scale, not only the ranking."""
     thresholds = np.linspace(scores.min(), scores.max(), n_thresholds)
+    runs = segments(labels > 0)
+    if len(runs) == 1 and runs[0][0] > 0:
+        # Vectorised, for one anomaly not at index 0 (the UCR case): after point-adjust, TP = L if the
+        # anomaly's highest score reaches t, else 0, and FP = number of normal points >= t.
+        start, end = runs[0]
+        normal = np.sort(np.r_[scores[:start], scores[end:]])
+        fp = len(normal) - np.searchsorted(normal, thresholds, side="left")
+        tp = np.where(scores[start:end].max() >= thresholds, end - start, 0)
+        precision = tp / (tp + fp + 0.00001)
+        recall = tp / (tp + (end - start - tp) + 0.00001)
+        return np.max(2 * precision * recall / (precision + recall + 0.00001))
     return max(_f1_momentfm(point_adjust(scores >= t, labels), labels) for t in thresholds)
 
 
@@ -100,3 +113,17 @@ def p_value(value: float, null_values: np.ndarray) -> float:
     """Empirical p-value: share of random runs scoring at least as well, counting the method
     itself as one more draw so that p is never 0 (smallest value 1 / (N + 1))."""
     return (1 + np.sum(np.asarray(null_values) >= value)) / (1 + len(null_values))
+
+
+def vus(labels: np.ndarray, scores: np.ndarray, window: int) -> tuple[float, float]:
+    """(VUS-ROC, VUS-PR) from the authors' code (analysis plan, D9). Raises if no point is labelled:
+    unlike the authors' wrapper, errors are not turned into NaN here."""
+    out = generate_curve(labels.astype(int), scores, int(window))
+    return float(out[6]), float(out[7])
+
+
+def authors_vus_window(labels: np.ndarray) -> int:
+    """The window the authors pass to generate_curve: twice the anomaly length estimated from the
+    labels (moment-research, `estimate_sliding_window_size`, used by `vus_metrics`)."""
+    start, end = np.argmax(labels), len(labels) - np.argmax(labels[::-1])
+    return 2 * int(end - start)

@@ -38,3 +38,13 @@ def test_checkpoint_loads_strictly():
 
     MOMENTPipeline.from_pretrained("AutonLab/MOMENT-1-small", strict=True,
                                    model_kwargs={"task_name": "reconstruction"})
+
+
+def test_masked_scores_deterministic_and_shaped():
+    from zsad.moment import load_moment, masked_scores
+
+    model = load_moment("small", "cpu")
+    x = np.sin(np.arange(1100) / 10.0)
+    scores, reconstruction = masked_scores(model, x, "cpu")
+    assert scores.shape == reconstruction.shape == (1100,)
+    np.testing.assert_array_equal(scores, masked_scores(model, x, "cpu")[0])
