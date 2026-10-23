@@ -349,3 +349,17 @@ All from `src/zsad/metrics.py`, computed on the test part at the configuration's
   `src/zsad/vus_moment_research.py` (`generate_curve`; adapted by them from TheDatumOrg/VUS); no
   `vus` package.
 - Window: the reproduction anchors use theirs 
+
+### D10, 23/10/2026, after the first full run (its results not used): calibration failures
+
+- In IDs 15, 56, 74, 75, 123, 164, 182, 183 and 207 the calibration part could not be scored (too
+  little history for the context rule at ×10), and the runner dropped MOMENT and masked MOMENT from
+  every metric. Fixed: the test-part metrics are kept and only alerting is marked missing, with the
+  reason. k-NN stays failed there (fit part shorter than 5 windows, from the "consistent" rule of
+  section 3).
+- Reporting added after seeing the first run: the per-detector table on the series where every
+  detector ran; the course baselines in a separate "not in the paper" table; a one-sided p next to
+  the two-sided one (decisions unchanged); the coverage count over all series; the reason each
+  "paper-faithful" series has nothing to score; a matrix-profile figure (3 series, fixed rule).
+- Any other downsampling rule would be a sensitivity analysis decided after seeing results, and
+  labelled as such.

@@ -1,234 +1,177 @@
 # MOMENT zero-shot anomaly detection, evaluated against chance
 
-Mini-project for *Apprentissage pour les séries temporelles* (MVA, L. Oudre): zero-shot anomaly
-detection with MOMENT (Goswami et al., ICML 2024), re-evaluated with metrics calibrated against
-chance. **Work in progress**: so far, one series; the 248-series study is next.
+Younes Ziri, research project for *Apprentissage pour les séries temporelles* (MVA, L. Oudre), on
+[MOMENT: A Family of Open Time-series Foundation Models](https://arxiv.org/abs/2402.03885) (Goswami et
+al., ICML 2024).
 
-## Summary (one series: tiltAPB2, the series of the authors' own tutorial)
+**Question.** Question: “The paper reports that zero-shot MOMENT beats k-NN and four deep-learning detectors (TimesNet, Anomaly Transformer, DGHL, GPT4TS) on point-adjusted F1, which can reward random scores. I re-test it against k-NN and simple course baselines: how much of that advantage survives when each detector is measured against its own chance level?”
 
-1. **The paper's number reproduces, but on this series the paper's metric is weak evidence of
-   detection.** Under the paper's ×10 protocol, MOMENT-1-large gets an adjusted best F1 of 0.960
-   (paper: 0.96, Table 22). Our reference chance level is MOMENT's own scores slid in time (same
-   values, same clustering, alignment with the anomaly broken): they reach at least 0.960 in about 5%
-   of shifts (p = 0.055). At full resolution (the tutorial's protocol) MOMENT gets 0.922 and its
-   shifted scores average 0.834 (p = 0.38). The metric depends on the *shape* of the score
-   distribution, not only on the ranking: at full resolution, random uniform scores average 0.679 on
-   it and random squared-Gaussian scores 0.945.
-2. **Under stricter metrics, MOMENT's signal depends on the resolution, and it doesn't give a useful
-   alert.** At full resolution its point-wise best F1 (0.050) and AUC-PR (0.014) are above its own
-   shifted scores (p = 0.002 and 0.005); under the ×10 protocol only borderline (AUC-PR 0.027,
-   p = 0.05). Its highest score is not near the anomaly, and a threshold set without labels raises 12
-   false alarms but never fires on the anomaly. k-NN has a higher AUC-PR at full resolution (0.022),
-   but it is not clearly above its own shifted scores (p = 0.063), and it catches the anomaly (with 276
-   false alarms) in 59% of its own shifts too. One series cannot rank detectors.
-3. **The released setup has pitfalls.** With momentfm's pinned dependencies the model loads with
-   dropout on, and the tutorial doesn't switch it off; the published small and base checkpoints
-   contain a reconstruction head that matches momentfm's initialisation exactly, so only large works
-   zero-shot; and the released weights need the positional embedding that the authors' zero-shot
-   config turns off.
+**Answer (preliminary).** MOMENT beats its own chance level but is not shown to beat k-NN, and a
+simple matrix-profile baseline reaches about ten times its score on the range-aware metric (VUS-PR).
 
-One series is a case study, not a conclusion about MOMENT: see [Limitations](#limitations).
+**Status: work in progress.** **The 248-series numbers below are
+preliminary: first full run, 23/10/2026; final run pending.** In this first run a bug removed MOMENT
+from 9 series (fixed for the final run, `docs/analysis_plan.md`, D10). Every 248-series number comes from
+`results/248/summary.md` (produced by `scripts/analyse_248.py`).
 
-![MOMENT-1-large on the tiltAPB2 test part, full resolution](figures/tiltAPB2_x1.png)
+## Summary
 
-## Question
+1. **The paper's numbers reproduce.** With the authors' data and rules and the released MOMENT-1-large
+   weights, adjusted best F1 is 0.586 and VUS-ROC 0.671 (Table 7: 0.585 and 0.670); k-NN gets 0.552 and
+   0.712 (Table 7: 0.554 and 0.706), over the 238 series the authors' pipeline keeps.
+2. **MOMENT beats chance, but not k-NN.** On VUS-PR, MOMENT exceeds its own circularly shifted scores by
+   0.019 (clustered 95% CI [0.012, 0.027], p < 0.001), the pre-registered confirmatory result. Against
+   k-NN the estimate favours k-NN (−0.074), not significant under the pre-registered rule (two-sided
+   p = 0.096), so the test sequence stops there.
+3. **A course baseline does far better (descriptive).** The matrix profile (AB-join against the
+   anomaly-free fit part) reaches a VUS-PR of 0.333, about 10× MOMENT's 0.034.
+4. **The paper's metric gives each detector a different chance level, which reverses rankings.** On
+   adjusted best F1, chance is 0.37 for MOMENT, 0.28 for k-NN and 0.10 for the matrix profile. MOMENT
+   leads on the raw metric (0.611 vs 0.575 for k-NN and 0.409 for the matrix profile) but trails on the
+   excess over chance (0.244 vs 0.298 and 0.311).
 
-Does MOMENT's zero-shot anomaly-detection advantage on the UCR archive hold under an evaluation
-calibrated against chance: compared with random scores, with no credit for a whole anomaly from
-one lucky point, and with a threshold chosen without the labels?
+The question, the protocol and every decision were fixed before the first run in
+[`docs/analysis_plan.md`](docs/analysis_plan.md) (later changes logged there as dated deviations).
 
-## What we did
+## Reproduction (the authors' data and rules)
 
-- **Data and model, as the authors' tutorial** ([moment](https://github.com/moment-timeseries-foundation-model/moment),
-  `tutorials/anomaly_detection.ipynb`): series tiltAPB2 from the UCR Anomaly Archive (arterial blood
-  pressure on a tilt table; the anomaly, 826 points, is synthetic), MOMENT-1-large with the released
-  weights, windows of 512, score = squared reconstruction error. Two fixes: `model.eval()`
-  (the tutorial leaves dropout on) and reading the first data point (the tutorial drops it).
-- **Two protocols**: full resolution, as the tutorial; and ×10 max-pooling, as the paper's research
-  code ([moment-research](https://github.com/moment-timeseries-foundation-model/moment-research)) for Table 22.
-- **Splits**: train part [0, 50000) cut into fit [0, 42857) and calibration [42857, 50000) with the
-  paper's 6/7 ratio; test [50000, end). k-NN is trained on the fit part, so unlike MOMENT it is not
-  zero-shot. The calibration part only sets the alert threshold τ (its maximum score); no labels are used.
-- **Baselines**: k-NN as in the authors' code (5 neighbours, 512-point windows). Chance: each
-  detector's own test scores circularly shifted in time (1000 offsets drawn without replacement from
-  all non-zero offsets, the standard rotation test), the reference; and random scores, uniform and squared Gaussian
-  (1000 draws each), to show how the paper's metric depends on the shape of the scores.
-- **Metrics**: the paper's adjusted best F1 (our implementation is tested equal to momentfm's), the
-  same on rank scores, point-wise best F1, AUC-PR, AUC-ROC, UCR top-1 (highest score within
-  ±100 points of the anomaly), and alerting at τ (detected, false-alarm events, delay). Empirical
-  p-value against each chance baseline: (1 + #draws scoring at least as well) / 1001.
+"Paper-faithful": the authors' TSB-UAD files, the rules of their research code
+(`moment-research`, commit 3ab637e), and the released weights.
 
-## Results
+| Detector | Adjusted best F1 (ours) | Table 7 | VUS-ROC (ours) | Table 7 |
+|---|---|---|---|---|
+| MOMENT-1-large | 0.586 | 0.585 | 0.671 | 0.670 |
+| k-NN | 0.552 | 0.554 | 0.712 | 0.706 |
 
-Full resolution (the tutorial's protocol), from [`results/tiltAPB2_x1.md`](results/tiltAPB2_x1.md),
-produced by `scripts/run_case_study.py`:
+The authors' pipeline leaves 10 of the 248 series with nothing to score (see below) and drops them from
+its means. Our mean over the 238 series the pipeline keeps matches Table 7; counting the 10 others as 0
+gives 0.562 for MOMENT's adjusted best F1. This is consistent with Table 7 averaging those 238 series,
+but we cannot verify it. On tiltAPB2 (ID 198), MOMENT gets 0.960 and 0.747 (Table 22: 0.96 and 0.75).
 
-| Method | Adj. best F1 (paper) | Same, rank scores | Best F1, point-wise | AUC-PR | AUC-ROC | UCR top-1 |
-|---|---|---|---|---|---|---|
-| MOMENT-1-large | 0.922 | 0.684 | 0.050 | 0.014 | 0.524 | no |
-| k-NN (fit part) | 0.738 | 0.676 | 0.057 | 0.022 | 0.711 | no |
-| Random uniform (1000 draws) | 0.679 ± 0.025 | 0.679 ± 0.023 | 0.022 ± 0.001 | 0.011 ± 0.000 | 0.500 ± 0.010 | 9/1000 |
-| Random squared Gaussian (1000 draws) | 0.945 ± 0.047 | 0.680 ± 0.032 | 0.022 ± 0.001 | 0.011 ± 0.000 | 0.500 ± 0.010 | 13/1000 |
-| MOMENT-1-large, circular shift (1000 shifts) | 0.834 ± 0.138 | 0.651 ± 0.075 | 0.025 ± 0.004 | 0.011 ± 0.001 | 0.499 ± 0.036 | 11/1000 |
-| k-NN, circular shift (1000 shifts) | 0.486 ± 0.403 | 0.392 ± 0.295 | 0.033 ± 0.012 | 0.013 ± 0.006 | 0.499 ± 0.212 | 11/1000 |
+## Detectors and metrics
 
-Empirical p-values, against random uniform / random squared Gaussian / **the method's own scores,
-circularly shifted** (the reference). 0.001 is the smallest value 1000 draws allow (1/1001), so read
-it as p ≤ 0.001:
+- **MOMENT-1-large**, zero-shot: reconstruction error of each 512-point window, nothing masked.
+  **Masked**: each patch is hidden in one of 4 passes and predicted from the others.
+- **k-NN** as in the authors' code: mean of the 5 nearest anomaly-free training windows.
+- **Course baselines** (Lecture 5): **Mu-Sigma** and **Med-Mad**, distance to the mean (median) of the
+  last L points in standard deviations (median absolute deviations); the **matrix profile**, distance
+  from each test subsequence of length L to its nearest neighbour in the anomaly-free fit part
+  (AB-join), or anywhere else in the series (self-join, exploratory).
+- **L**: the dominant period of the train part (first autocorrelation peak), clipped to [16, 512].
+- **VUS-PR**: volume under the range-based precision-recall surface (Paparrizos et al. 2022), with
+  window L; threshold-free, gives credit near the anomaly.
+- **Top-1**: the single highest score lies within ±100 original points of the anomaly (the archive's
+  own scoring).
 
-| Method | Adj. best F1 (paper) | Same, rank scores | Best F1, point-wise | AUC-PR | AUC-ROC |
+## Main results
+
+"Consistent": the original UCR archive, one downsampling factor per series (chosen from the test
+part's length, the paper's ×10 rule, then applied to every part), L computed on the train part, the
+235 series where every detector ran. Chance = each detector's own test scores circularly shifted
+(100 shifts); for top-1 the exact chance |Z|/n.
+
+| Detector | VUS-PR | chance | excess | top-1 | chance | adj. best F1 | chance |
+|---|---|---|---|---|---|---|---|
+| MOMENT-1-large | 0.034 | 0.014 | 0.020 | 0.209 | 0.024 | 0.611 | 0.367 |
+| MOMENT-1-large, masked | 0.038 | 0.015 | 0.023 | 0.128 | 0.024 | 0.574 | 0.351 |
+| k-NN | 0.111 | 0.017 | 0.093 | 0.328 | 0.024 | 0.575 | 0.277 |
+| Mu-Sigma | 0.024 | 0.014 | 0.010 | 0.191 | 0.024 | 0.435 | 0.356 |
+| Med-Mad | 0.025 | 0.016 | 0.009 | 0.085 | 0.024 | 0.336 | 0.286 |
+| Matrix profile (AB-join) | 0.333 | 0.029 | 0.304 | 0.370 | 0.024 | 0.409 | 0.098 |
+| Matrix profile, self-join (exploratory) | 0.386 | 0.029 | 0.357 | 0.421 | 0.024 | 0.453 | 0.099 |
+
+Confirmatory tests, on every series each detector ran on (fixed sequences at α = 0.05; significant =
+clustered bootstrap 95% interval excludes 0 and two-sided p < 0.05):
+
+| Test | n | Estimate | 95% CI (clustered) | p | Outcome |
 |---|---|---|---|---|---|
-| MOMENT-1-large | 0.006 / 0.741 / **0.379** | 0.006 / 0.011 / **0.011** | 0.001 / 0.001 / **0.002** | 0.001 / 0.001 / **0.005** | 0.005 / 0.005 / **0.234** |
-| k-NN (fit part) | 0.006 / 1.000 / **0.437** | 0.828 / 0.856 / **0.436** | 0.001 / 0.001 / **0.027** | 0.001 / 0.001 / **0.063** | 0.001 / 0.001 / **0.079** |
+| 1. VUS-PR, MOMENT vs chance | 239 | +0.019 | [0.012, 0.027] | < 0.001 | significant |
+| 2. VUS-PR, MOMENT vs k-NN | 235 | −0.074 | [−0.142, −0.014] | 0.096 | not significant; sequence stops |
+| 3. top-1, MOMENT vs chance | 239 | 49 hits, 5.8 expected | [0.085, 0.296] | < 0.001 | reported, not confirmatory |
+| 4. top-1, MOMENT vs k-NN | 235 | 49 vs 77 hits | [−0.256, −0.004] | < 0.001 | reported, not confirmatory |
+| Q3. VUS-PR, masked vs unmasked | 239 | +0.004 | [−0.012, 0.032] | 0.011 | not significant; sequence stops |
 
-Alerting at τ = max score on the calibration part (no labels): MOMENT does not detect the anomaly
-and raises 12 false-alarm events; its shifted scores detect it in 133 of 1000 shifts, with about 12
-false-alarm events each. k-NN detects it 25 points after its start, with 276 false-alarm events; its
-shifted scores detect it in 585 of 1000 shifts, with about 282 false-alarm events each.
+The null holds up: scores borrowed from another series reach p ≤ 0.05 in 3.6% of series (5% expected).
 
-×10 max-pooled (the paper's protocol), from [`results/tiltAPB2_x10.md`](results/tiltAPB2_x10.md):
-MOMENT-1-large's adjusted best F1 is 0.960 (paper: 0.96); its shifted scores average 0.519 ± 0.222
-and reach 0.960 in about 5% of shifts (p = 0.055). Against its own shifted scores, its p-values are
-0.067 on rank scores, 0.087 for point-wise best F1, 0.050 for AUC-PR (0.027) and 0.016 for AUC-ROC.
-k-NN's AUC-PR is 0.019 (p = 0.131): below MOMENT at ×10, above it at full resolution (0.022 vs
-0.014).
+## What we found in the released code and data
 
-### How to read these numbers
+Observations about `moment-research` at commit 3ab637e unless stated otherwise.
 
-- **Why random scores do so well on the paper's metric.** Point-adjust counts the whole anomaly
-  as detected as soon as one alert falls inside it, and the best of 100 thresholds is picked with
-  the labels. The thresholds are spaced evenly between the minimum and maximum score, so their
-  position depends on the shape of the score distribution. A back-of-the-envelope check (not a
-  script output): for uniform scores, the second-highest threshold flags about 1% of the 78,767 test
-  points; a few land in the anomaly, so recall is 1 and precision is about 826 / (826 + 790) ≈ 0.51,
-  which gives F1 ≈ 0.68, close to the measured 0.679. Squared-Gaussian scores
-  have a long tail, so several thresholds flag only a few dozen points; when one of them falls in
-  the anomaly, F1 is about 0.95.
-- **Shape, not scale.** Multiplying or shifting the scores moves all 100 thresholds with them and
-  changes nothing; only a non-linear reshaping (squaring, ranking) changes the result. That is why
-  two random baselines are shown, and why the reference chance level for each detector uses its own
-  scores.
-- **Why a circular shift.** iid random scores (or a shuffle) scatter the high scores, while a
-  detector's high scores come in clusters (here, on heartbeat peaks). Scattered high scores give many
-  independent chances to land in the anomaly, which is harsh on the detector under point-adjusted F1;
-  they also make AUC-type metrics vary less than clustered scores do, which flatters the detector.
-  Sliding the detector's own score series in time keeps the values and the clustering and only breaks
-  the alignment with the anomaly. The difference is large: MOMENT's ×10 AUC-PR has p = 0.003
-  against squared-Gaussian noise but p = 0.050 against its own shifted scores.
-- **Rank scores** replace each score by its rank: the ordering, and so every possible alert, is
-  unchanged, but the shape is gone. Uniform and squared-Gaussian scores then agree (0.679, 0.680),
-  and MOMENT is barely above them (0.684).
-- **AUC-PR before AUC-ROC.** With about 1% anomalous points, AUC-ROC is optimistic: many false
-  alarms barely move the false-positive rate (course, Lecture 5, p. 90). k-NN shows it: AUC-ROC
-  0.711, AUC-PR 0.022.
-- **Best-score metrics are upper bounds.** Adjusted best F1 and point-wise best F1 choose the
-  threshold on the test labels (course, p. 91). Alerting at τ is the only metric here with a threshold
-  set without labels.
+- **10 series with nothing to score.** Four labelling problems in the authors' TSB-UAD files: IDs 79,
+  108 and 187 have no labelled point, and ID 203 keeps a pre-correction training end that puts its
+  anomaly in the training part (`results/label_check.md`). Six anomalies (IDs 72, 85, 180, 193, 229,
+  232) lie entirely in the test tail that is never scored: windows are counted as
+  `(len − 512) // 512 + 1` (`moment/data/anomaly_detection_datasets.py`, l. 374–375). IDs 61, 105 and
+  169 lose part of theirs (44 of 60 ×10 blocks scored). For such series VUS raises an error that a bare `except:`
+  turns into NaN (`moment/utils/anomaly_detection_metrics.py`, l. 67 and 74), and the results loop drops
+  NaN rows (`scripts/zero_shot/anomaly_detection.py`, l. 175).
+- **Each part downsampled according to its own length** (`anomaly_detection_datasets.py`, l. 245 and
+  278–290). In 81 series, k-NN is therefore trained and scored at different resolutions.
+- **The text says 2560, the code 25,600.** The paper downsamples series "longer than 2560 timesteps"
+  (App. E.3); the code does so when `length // 10 > 2560` (l. 245; `configs/anomaly_detection/zero_shot.yaml`,
+  l. 29–30).
+- **The tutorial runs with dropout on** (`moment` repository, `tutorials/anomaly_detection.ipynb`): it
+  never calls `model.eval()`, and with momentfm 0.1.4's pinned huggingface-hub the weights load in
+  training mode, so scores change on every call.
+- **The Small and Base reconstruction heads are untrained.** Read from the released checkpoints: zero
+  bias and orthogonal weight rows with gain 1.41 (W·Wᵀ = 1.41²·I to 4 decimals), i.e. momentfm's
+  initialisation; neither reconstructs a sine wave, even with masked scoring. Only Large does
+  (`results/moment_diagnostics.md`).
 
-### Released checkpoints
+## Figures
 
-From [`results/moment_diagnostics.md`](results/moment_diagnostics.md), produced by
-`scripts/diagnose_moment.py`:
+![Matrix profile on three series](figures/248_matrix_profile.png)
 
-| Model | max abs(head bias) | max abs(W·Wᵀ − 1.41²·I) | corr(sine, reconstruction), embedding on / off |
-|---|---|---|---|
-| MOMENT-1-small | 0.0000 | 0.0000 | −0.066 / 0.111 |
-| MOMENT-1-base | 0.0000 | 0.0000 | 0.001 / −0.162 |
-| MOMENT-1-large | 0.0121 | 1.3097 | 0.987 / −0.562 |
-| small, no weights loaded | 0.0000 | 0.0000 | 0.028 / – |
+Matrix profile (AB-join) on tiltAPB2, the median series and a random one (chosen by a fixed rule,
+`scripts/plot_matrix_profile.py`).
 
-- **The head values are read directly from the `.safetensors` files** (Hugging Face revisions
-  `411e288267`, `5e44b0ea26`, `ca58581bc7` for small, base, large). For small and base they match
-  momentfm's initialisation exactly (zero bias, orthogonal rows scaled by 1.41, so W·Wᵀ = 1.41²·I),
-  like a model with no weights loaded; training would have moved them, so we infer these heads were
-  never trained. Neither model reconstructs even a sine wave. This also rules out the idea that they
-  were trained only to predict masked patches: a head trained on anything would have moved.
-- **The positional embedding:** all three checkpoints load with `strict=True` with it on, and contain
-  its table (`patch_embedding.position_embedding.pe`), so they were saved with it; with it off,
-  `strict=True` loading fails on that table, and Large no longer reconstructs.
+![Null validity check](figures/248_null_validity.png)
+
+Per-series p-values when MOMENT's scores come from another series: roughly flat, as they should be.
 
 ## Limitations
 
-- **One series**, with a synthetic anomaly. Nothing here is a claim about the 248-series average
-  of the paper (Table 7).
-- **What "248 series" means in Table 7 is unclear** (an observation). In the authors' data files
-  (TSB-UAD), IDs 79, 108 and 187 have no labelled anomaly and ID 203's anomaly lies in its training
-  part (`results/label_check.md`, from `scripts/check_labels.py`). For such series the authors' code
-  returns NaN for VUS and drops the row (`.dropna()`), so its means would cover fewer than 248
-  series. Table 22 cannot settle this: it has no row for resperation2 (IDs 79, 108, 187), a single
-  CHARISfive row that could be any of IDs 201–205, and a row for InternalBleeding4 (IDs 32 and 140),
-  which the code excludes from the 248.
-- **Possible pretraining overlap.** The UCR series come from the KDD21 collection, which is part of
-  MOMENT's pretraining data (paper, Table 12). The paper says long series were split into
-  train/validation/test parts for pretraining, and the authors' tutorial says MOMENT was not exposed
-  to the test part of this series; the anomaly-free part may have been seen. Not verified; it matters
-  for what "zero-shot" means here.
-- **Approximate p-values.** The circular shift treats every offset of the score series as equally
-  plausible, and all 1000 shifts come from one series; the p-values are indicative, not exact.
-- **Released weights, not the paper's checkpoint.** The paper's zero-shot code loads an internal
-  pretraining checkpoint (`charmed-bee-241`) with the positional embedding off; we use the public
-  weights.
-- **No range-based metrics yet** (range-based precision/recall, Tatbul et al. 2018; VUS-ROC, the
-  paper's second metric).
-- k-NN uses the paper's zero-shot split (6/7 of the train part); its own config uses 5/7.
-
-## Reproduce
-
-```bash
-uv sync                                                  # Python 3.11, pinned dependencies
-uv run pytest                                            # 60 tests (MOMENT tests need the weights)
-uv run python scripts/run_case_study.py                  # full resolution, ~11 min on an M2
-uv run python scripts/run_case_study.py --factor 10      # paper protocol, ~1 min
-uv run python scripts/diagnose_moment.py                 # released checkpoints, ~2 min
-```
-
-## Setup
-
-```bash
-uv run python scripts/check_setup.py      # feasibility check (downloads ~2 GB of weights)
-```
-
-- **Python 3.11 only.** `momentfm` 0.1.4 (latest on PyPI) pins `numpy==1.25.2`, which has
-  no wheels for Python 3.12+, and `transformers==4.33.3`. The repo's 0.1.5 has the same model code.
-- **Always call `model.eval()` after `from_pretrained`.** huggingface-hub 0.24 (pinned by
-  momentfm 0.1.4) skips it when loading safetensors weights, so dropout stays on and the
-  reconstruction, and therefore the anomaly score, changes on every call. The official
-  tutorial doesn't call it; the authors' research code does.
-- **Keep the positional embedding on and use MOMENT-1-large** for zero-shot reconstruction
-  (see [Released checkpoints](#released-checkpoints)).
-- **Don't upgrade torch casually.** transformers 4.33.3 calls a torch internal
-  (`_register_pytree_node`) that recent torch only keeps as deprecated; the lockfile pins a
-  combination that works.
-
-### Data
-
-`data/198_UCR_Anomaly_tiltAPB2_50000_124159_124985.out`: one series from the UCR Anomaly
-Archive (Wu & Keogh), copied from the official MOMENT repo. Column 0 is the value, column 1
-the label. The file has no header (read it with `header=None`). Points `[0, 50000)` are the
-anomaly-free training part; the anomaly is at 0-based indices `[124159, 124984]`.
-
-## Roadmap
-
-1. **248 series** (UCR IDs 1–250 except 32 and 140, as the paper): reproduce Table 7 with the
-   released weights, then compare MOMENT with k-NN and with chance using paired statistics across
-   series (bootstrap confidence intervals, Wilcoxon test).
-2. Range-based metrics (Tatbul et al. 2018) and VUS-ROC.
-3. A stronger chance baseline that keeps the detector's own score distribution and burstiness
-   (random circular shifts of its scores).
-4. Masked scoring at inference: hide each patch in turn, as in pretraining.
+- MOMENT's pretraining data includes this archive (paper, Table 12), which would favour MOMENT.
+- One benchmark (UCR): one anomaly per series, many of them synthetic.
+- The window L of VUS-PR and of the course baselines comes from a fixed rule (the first
+  autocorrelation peak), not tuned.
+- VUS is computed with the authors' copy of the VUS code, which may differ slightly from the current
+  VUS release.
+- One model configuration: MOMENT-1-large, positional embedding on.
+- The matrix-profile comparison is descriptive, not a pre-registered test.
+- One run so far.
 
 ## References
 
 - Goswami et al. (2024). MOMENT: A Family of Open Time-series Foundation Models. ICML.
-- Kim, Choi, Choi, Lee & Yoon (2022). Towards a Rigorous Evaluation of Time-Series Anomaly
-  Detection. AAAI, 7194–7201. (Point-adjust lets random scores look good.)
-- Huet, Navarro & Rossi (2022). Local Evaluation of Time Series Anomaly Detection Algorithms.
-  KDD, 635–645. (Evaluation by comparison to a random detector; our p-values follow that idea,
-  not their method.)
-- Tatbul, Lee, Zdonik, Alam & Gottschlich (2018). Precision and Recall for Time Series. NeurIPS.
-- Wu & Keogh (2021). Current Time Series Anomaly Detection Benchmarks are Flawed and are Creating
-  the Illusion of Progress. IEEE Transactions on Knowledge and Data Engineering. (Introduces the
-  UCR Anomaly Archive.)
-- L. Oudre, *Machine Learning for Time Series*, Lecture 5: Change-point and Anomaly Detection,
-  MVA 2026–2027.
+  [arXiv:2402.03885](https://arxiv.org/abs/2402.03885); code:
+  [moment](https://github.com/moment-timeseries-foundation-model/moment) (package and tutorials),
+  [moment-research](https://github.com/moment-timeseries-foundation-model/moment-research) (paper code).
+- Paparrizos et al. (2022). TSB-UAD: An End-to-End Benchmark Suite for Univariate Time-Series Anomaly
+  Detection. PVLDB. [Code and data](https://github.com/TheDatumOrg/TSB-UAD).
+- Wu & Keogh (2021). Current Time Series Anomaly Detection Benchmarks are Flawed and are Creating the
+  Illusion of Progress. IEEE TKDE. [UCR Anomaly Archive](https://www.cs.ucr.edu/~eamonn/time_series_data_2018/).
+- Paparrizos et al. (2022). Volume Under the Surface: A New Accuracy Evaluation Measure for
+  Time-Series Anomaly Detection. PVLDB. [Code](https://github.com/TheDatumOrg/VUS).
+- Liu & Paparrizos (2024). The Elephant in the Room: Towards A Reliable Time-Series Anomaly Detection
+  Benchmark. NeurIPS Datasets and Benchmarks. [Code](https://github.com/TheDatumOrg/TSB-AD).
+- Yeh et al. (2016). Matrix Profile I: All Pairs Similarity Joins for Time Series. ICDM.
+  [Matrix Profile page](https://www.cs.ucr.edu/~eamonn/MatrixProfile.html).
+- Kim et al. (2022). Towards a Rigorous Evaluation of Time-Series Anomaly Detection. AAAI.
+- L. Oudre, *Machine Learning for Time Series*, Lecture 5: Change-point and Anomaly Detection, MVA.
 
+
+## Reproduce
+
+```bash
+uv sync                                       # Python 3.11, pinned dependencies
+uv run python scripts/download_data.py        # TSB-UAD (241 MB) and the UCR archive (184 MB)
+uv run python scripts/check_labels.py
+caffeinate -i sh -c 'for k in 0 1 2; do uv run python scripts/run_248.py --part $k/3 & done; wait;
+                     uv run python scripts/run_248.py'      # about 4.5 h on a MacBook Air M2
+uv run python scripts/analyse_248.py
+uv run python scripts/plot_matrix_profile.py
+```
+
+The single-series case study (tiltAPB2) is in `results/tiltAPB2_x1.md` and `results/tiltAPB2_x10.md`
+(`scripts/run_case_study.py`).

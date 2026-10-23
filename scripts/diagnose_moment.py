@@ -4,7 +4,8 @@ For each released size (and an untrained small as reference):
   - loading: does the checkpoint load with strict=True? huggingface-hub 0.24 defaults to
     strict=False, which would silently leave mismatched layers at their random initialisation.
     Checked with the positional embedding on (momentfm's default) and off (the authors' config);
-  - reconstruction of a clean sine wave: corr(x, x̂), positional embedding on and off;
+  - reconstruction of a clean sine wave: corr(x, x̂), positional embedding on and off, and with
+    masked scoring (each patch hidden in one of 4 passes, embedding on);
   - reconstruction head, read directly from the .safetensors file (no momentfm involved):
     momentfm initialises it with zero bias and orthogonal rows scaled by 1.41, so W·Wᵀ = 1.41²·I.
     Values still at 0 below mean the head matches that initialisation exactly (never trained).
@@ -22,7 +23,7 @@ from huggingface_hub import try_to_load_from_cache
 from momentfm import MOMENTPipeline
 from safetensors import safe_open
 
-from zsad.moment import load_moment, moment_scores
+from zsad.moment import load_moment, masked_scores, moment_scores
 
 SIZES = ["small", "base", "large"]
 SINE = np.sin(2 * np.pi * np.arange(2048) / 50)  # 4 windows of an easy, clean signal
@@ -49,8 +50,8 @@ def untrained_small():
     return model.eval()
 
 
-def sine_corr(model) -> str:
-    return f"{np.corrcoef(SINE, moment_scores(model, SINE, 'cpu')[1])[0, 1]:.3f}"
+def sine_corr(model, score_fn=moment_scores) -> str:
+    return f"{np.corrcoef(SINE, score_fn(model, SINE, 'cpu')[1])[0, 1]:.3f}"
 
 
 def head_from_init(W: torch.Tensor, b: torch.Tensor) -> list[str]:
@@ -68,15 +69,15 @@ def checkpoint_head(size: str) -> tuple[str, torch.Tensor, torch.Tensor]:
 
 def main():
     header = ["Model", "HF revision", "Loads strictly, emb. on", "Loads strictly, emb. off", "corr(sine), emb. on",
-              "corr(sine), emb. off", "max abs(head bias), file", "max abs(W·Wᵀ − 1.41²·I), file"]
+              "corr(sine), emb. off", "corr(sine), masked", "max abs(head bias), file", "max abs(W·Wᵀ − 1.41²·I), file"]
     rows = []
     for size in SIZES:
         on, off = load_moment(size, "cpu"), load_moment(size, "cpu", positional_embedding=False)
         revision, W, b = checkpoint_head(size)
         rows.append([f"MOMENT-1-{size}", revision[:10], loads_strictly(size, True), loads_strictly(size, False),
-                     sine_corr(on), sine_corr(off), *head_from_init(W, b)])
+                     sine_corr(on), sine_corr(off), sine_corr(on, masked_scores), *head_from_init(W, b)])
     model = untrained_small()
-    rows.append(["small, untrained (no weights)", "–", "–", "–", sine_corr(model), "–",
+    rows.append(["small, untrained (no weights)", "–", "–", "–", sine_corr(model), "–", sine_corr(model, masked_scores),
                  *head_from_init(model.head.linear.weight, model.head.linear.bias)])
 
     lines = ["| " + " | ".join(header) + " |", "|" + "---|" * len(header)] + ["| " + " | ".join(r) + " |" for r in rows]

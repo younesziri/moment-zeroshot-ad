@@ -79,11 +79,19 @@ def shifted(test, labels, L, offsets) -> dict:
     return out
 
 
-def run_detector(get_scores, labels, near, L, factor, offsets) -> dict:
+def run_detector(get_cal, get_test, labels, near, L, factor, offsets) -> dict:
+    """A failure on the test part fails the detector. A failure on the calibration part only removes
+    alerting, the one metric that uses it (analysis plan, D10). Both are recorded, never dropped."""
+    out = {}
     try:
-        cal, test = get_scores()
-        return {"observed": observed(cal, test, labels, near, L, factor), "shifts": shifted(test, labels, L, offsets)}
-    except Exception as e:  # recorded and listed by the analysis, never dropped silently
+        cal = get_cal()
+    except Exception as e:
+        cal, out["alerting_missing"] = None, f"{type(e).__name__}: {e}"
+    try:
+        test = get_test()
+        return {**out, "observed": observed(cal, test, labels, near, L, factor),
+                "shifts": shifted(test, labels, L, offsets)}
+    except Exception as e:
         return {"error": f"{type(e).__name__}: {e}"}
 
 
@@ -102,18 +110,24 @@ def consistent(series_id, members, model, device, n_shifts, full_resolution=Fals
     mom = lambda x: moment_scores(model, x, device)[0]
     masked = lambda x: masked_scores(model, x, device)[0]
     moment_test = mom(test)  # computed once: used for the metrics and saved for the null validity check
-    detectors = {
-        "MOMENT": lambda: (with_context(mom, fit, cal), moment_test),
-        "MOMENT masked": lambda: (with_context(masked, fit, cal), masked(test)),
-        "k-NN": lambda: (with_context(lambda x: knn_scores(fit, x), fit, cal), knn_scores(fit, test)),
-        "Mu-Sigma": lambda: (mu_sigma(fit, cal, L, eps), mu_sigma(train, test, L, eps)),
-        "Med-Mad": lambda: (med_mad(fit, cal, L, eps), med_mad(train, test, L, eps)),
-        "Matrix profile": lambda: (with_context(lambda x: matrix_profile(fit, x, L), fit, cal, L),
-                                   matrix_profile(fit, test, L)),
-        "Matrix profile, self-join": lambda: tuple(np.split(matrix_profile_self(np.r_[fit, cal, test], L)[len(fit):],
-                                                            [len(cal)])),
+    cache = {}
+
+    def self_join():  # one profile for both parts, computed inside run_detector so a failure is recorded
+        if "s" not in cache:
+            cache["s"] = matrix_profile_self(np.r_[fit, cal, test], L)[len(fit):]
+        return cache["s"]
+
+    detectors = {  # (calibration scores, test scores)
+        "MOMENT": (lambda: with_context(mom, fit, cal), lambda: moment_test),
+        "MOMENT masked": (lambda: with_context(masked, fit, cal), lambda: masked(test)),
+        "k-NN": (lambda: with_context(lambda x: knn_scores(fit, x), fit, cal), lambda: knn_scores(fit, test)),
+        "Mu-Sigma": (lambda: mu_sigma(fit, cal, L, eps), lambda: mu_sigma(train, test, L, eps)),
+        "Med-Mad": (lambda: med_mad(fit, cal, L, eps), lambda: med_mad(train, test, L, eps)),
+        "Matrix profile": (lambda: with_context(lambda x: matrix_profile(fit, x, L), fit, cal, L),
+                           lambda: matrix_profile(fit, test, L)),
+        "Matrix profile, self-join": (lambda: self_join()[: len(cal)], lambda: self_join()[len(cal):]),
     }
-    results = {name: run_detector(f, labels, near, L, factor, offsets) for name, f in detectors.items()}
+    results = {name: run_detector(*f, labels, near, L, factor, offsets) for name, f in detectors.items()}
 
     random_runs, iid = [], {"vus_pr": [], "auc_pr": []}
     for d in range(IID_DRAWS):  # the first RANDOM_DRAWS draws are D1's random baseline
@@ -239,7 +253,7 @@ def main():
             borrowed = np.resize(np.load(partner), len(labels))  # from the start, wrapping if shorter
             offsets = np.random.default_rng(i).choice(np.arange(1, len(labels)), size=min(args.shifts, len(labels) - 1),
                                                       replace=False)
-            record["null_validity"] = {"partner": pairing[i], **run_detector(lambda: (None, borrowed), labels, near, L,
+            record["null_validity"] = {"partner": pairing[i], **run_detector(lambda: None, lambda: borrowed, labels, near, L,
                                                                              factor, offsets)}
         except Exception as e:
             record["null_validity"] = {"partner": pairing[i], "error": f"{type(e).__name__}: {e}"}

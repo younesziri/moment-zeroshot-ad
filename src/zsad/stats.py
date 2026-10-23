@@ -1,4 +1,4 @@
-"""Statistics across series (analysis plan, section 6). All tests are two-sided."""
+"""Statistics across series (analysis plan, section 6). Decisions use two-sided tests."""
 
 import numpy as np
 from scipy.stats import binomtest, wilcoxon
@@ -23,13 +23,14 @@ def bootstrap_ci(values: np.ndarray, groups: np.ndarray | None = None, n: int = 
     return float(low), float(high)
 
 
-def group_wilcoxon(values: np.ndarray, groups: np.ndarray) -> float:
-    """Wilcoxon signed-rank test on the group means (each source group counts once)."""
+def group_wilcoxon(values: np.ndarray, groups: np.ndarray, alternative: str = "two-sided") -> float:
+    """Wilcoxon signed-rank test on the group means (each source group counts once). The plan's
+    decisions use the two-sided test; "greater" gives the one-sided p for a positive mean."""
     values, groups = np.asarray(values, dtype=float), np.asarray(groups)
     means = np.array([values[groups == g].mean() for g in np.unique(groups)])
     if not np.any(means != 0):
         return 1.0
-    return float(wilcoxon(means, zero_method="wilcox", alternative="two-sided").pvalue)
+    return float(wilcoxon(means, zero_method="wilcox", alternative=alternative).pvalue)
 
 
 def poisson_binomial_test(hits: np.ndarray, probabilities: np.ndarray) -> float:
