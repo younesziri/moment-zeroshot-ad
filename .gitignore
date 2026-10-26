@@ -22,4 +22,5 @@ anomaly_detection.ipynb
 data/TSB-UAD-Public/
 results/248/raw/
 results/248/raw_full/
+results/248/raw_timestral/
 results/248/raw_first_run/
