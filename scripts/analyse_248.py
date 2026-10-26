@@ -1,6 +1,7 @@
 """Analysis of the 248-series run (docs/analysis_plan.md, sections 4-7, deviations D1-D10).
 
-Reads results/248/raw/*.json (from scripts/run_248.py) and writes:
+Reads results/248/raw/*.json (from scripts/run_248.py), and results/248/raw_timestral/*.json (from
+scripts/run_timestral.py, D11) when present, and writes:
   results/248/per_series.csv      one row per series and detector ("consistent"): observed metrics,
                                   chance level (mean over circular shifts; exact |Z|/n for top-1),
                                   excess and per-series p-value;
@@ -27,6 +28,7 @@ from zsad.stats import bootstrap_ci, group_wilcoxon, mcnemar_exact, poisson_bino
 from zsad.ucr import STUDY_IDS, factor_for, load_tsb, paper_parts
 
 RAW, OUT = Path("results/248/raw"), Path("results/248")
+RAW_TIMESTRAL = Path("results/248/raw_timestral")  # scripts/run_timestral.py (D11)
 SHIFT_METRICS = ["vus_pr", "vus_roc", "adj_best_f1", "adj_best_f1_ranks", "best_f1", "auc_pr", "auc_roc"]
 DETECTORS = ["MOMENT", "MOMENT masked", "k-NN", "Mu-Sigma", "Med-Mad", "Matrix profile", "Matrix profile, self-join"]
 PAPER_DETECTORS, NOT_IN_PAPER = ["MOMENT", "k-NN"], ["Mu-Sigma", "Med-Mad", "Matrix profile"]
@@ -70,8 +72,15 @@ def load():
             meta = c["meta"]
             metas.append({"id": r["id"], **meta})
             base_c = {**base, **{k: meta[k] for k in ["factor", "L", "n_test", "anomaly_length", "series_length"]}}
-            for name, result in {**c["detectors"], **({"Null validity (D4)": r["null_validity"]}
-                                                      if "null_validity" in r else {})}.items():
+            detectors = {**c["detectors"], **({"Null validity (D4)": r["null_validity"]} if "null_validity" in r else {})}
+            t = RAW_TIMESTRAL / f.name  # same parts as the main run, so the same meta and top-1 chance apply
+            if t.exists():
+                tr = json.loads(t.read_text())["timestral"]
+                if "error" in tr:
+                    failures.append((r["id"], "consistent", "Timestral", tr["error"]))
+                else:
+                    detectors.update(tr["detectors"])
+            for name, result in detectors.items():
                 row = detector_row(base_c, name, result, meta["top1_chance"])
                 if name == "MOMENT" and "error" not in row:  # exploratory: the i.i.d. random null
                     for mt in ["vus_pr", "auc_pr"]:
@@ -263,6 +272,13 @@ def main():
          continuous_test(paired(ok, "MOMENT masked", "MOMENT", "vus_pr_excess"), favour=False)),
         ("2. top-1, masked vs unmasked (McNemar)", top1_paired(ok, "MOMENT masked", "MOMENT", favour=False)),
     ])
+    family3 = fixed_sequence([  # D11, same rules as family 1
+        ("1. VUS-PR, Timestral vs chance", continuous_test(paired(ok, "Timestral", None, "vus_pr_excess"))),
+        ("2. VUS-PR, Timestral vs MOMENT (difference of excesses)",
+         continuous_test(paired(ok, "Timestral", "MOMENT", "vus_pr_excess"))),
+        ("3. top-1, Timestral vs chance (|Z|/n)", top1_vs_chance(ok, "Timestral")),
+        ("4. top-1, Timestral vs MOMENT (McNemar)", top1_paired(ok, "Timestral", "MOMENT")),
+    ]) if "Timestral" in set(ok["detector"]) else None
 
     ran = ok[ok["detector"].isin(DETECTORS)].groupby("id")["detector"].nunique()
     common = ran[ran == len(DETECTORS)].index
@@ -312,6 +328,10 @@ def main():
         "## Family 2 (Q3), masked vs unmasked, fixed sequence at α = 0.05", "",
         "Two-sided: significant = clustered interval excludes 0 (either direction) and p < 0.05.", "",
         md_table(family2),
+        "## Family 3 (Q4, D11), Timestral-209M, fixed sequence at α = 0.05", "",
+        "Same rules as family 1. Timestral vs k-NN and vs the matrix profile: descriptive (tables below); "
+        "\"Timestral, scaled\" (|x − median| / (q0.9 − q0.1)) is exploratory.", "",
+        md_table(family3) if family3 is not None else "Not run.\n",
         "## Per detector (\"consistent\")", "",
         "Means over series; chance = mean over circular shifts (exact |Z|/n for top-1); share_p_le_005 = "
         "share of series beating their own null at p ≤ 0.05 (5% expected by chance); alerting at τ = max "
