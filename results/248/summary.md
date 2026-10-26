@@ -1,4 +1,4 @@
-Produced by `scripts/analyse_248.py` at commit 7d46888b401f92ac5729d543d0d784a8c02a351c.
+Produced by `scripts/analyse_248.py` at commit 6e4cab9906b6f5466e4661365980eb8014165047.
 
 ## Coverage
 
@@ -64,6 +64,17 @@ Two-sided: significant = clustered interval excludes 0 (either direction) and p 
 | 1. VUS-PR, masked vs unmasked (difference of excesses) | 248 | 0.003 | [-0.0118, 0.0299] | [-0.0046, 0.0113] | 0.006 | False | no | – |
 | 2. top-1, masked vs unmasked (McNemar) | 248 | -0.081 | [-0.1564, -0.0079] | [-0.1250, -0.0363] | < 0.001 | True | no (sequence stopped earlier) | 30 vs 50 |
 
+## Family 3 (Q4, D11), Timestral-209M, fixed sequence at α = 0.05
+
+Same rules as family 1. Timestral vs k-NN and vs the matrix profile: descriptive (tables below); "Timestral, scaled" (|x − median| / (q0.9 − q0.1)) is exploratory.
+
+| test | n | mean | CI clustered | CI plain | p | p one-sided (in favour) | significant | confirmatory | hits | expected |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1. VUS-PR, Timestral vs chance | 248 | 0.072 | [0.0324, 0.1165] | [0.0566, 0.0889] | < 0.001 | < 0.001 | True | yes | – | – |
+| 2. VUS-PR, Timestral vs MOMENT (difference of excesses) | 248 | 0.053 | [0.0144, 0.0966] | [0.0379, 0.0687] | 0.033 | 0.017 | True | yes | – | – |
+| 3. top-1, Timestral vs chance (|Z|/n) | 248 | 0.259 | [0.1191, 0.4008] | [0.2044, 0.3141] | < 0.001 | – | True | yes | 70 | 5.890 |
+| 4. top-1, Timestral vs MOMENT (McNemar) | 248 | 0.081 | [-0.0464, 0.2199] | [0.0202, 0.1411] | 0.013 | – | False | no | 70 vs 50 | – |
+
 ## Per detector ("consistent")
 
 Means over series; chance = mean over circular shifts (exact |Z|/n for top-1); share_p_le_005 = share of series beating their own null at p ≤ 0.05 (5% expected by chance); alerting at τ = max calibration score.
@@ -79,6 +90,8 @@ All series each detector ran on:
 | Med-Mad | 248 | 0.024 | 0.016 | 0.009 | 0.121 | 0.085 | 0.024 | 0.337 | 0.286 | 0.051 | 0.355 | 13.963 |
 | Mu-Sigma | 248 | 0.025 | 0.014 | 0.011 | 0.319 | 0.202 | 0.024 | 0.437 | 0.353 | 0.083 | 0.403 | 11.089 |
 | Null validity (D4) | 248 | 0.013 | 0.014 | -0.001 | 0.036 | 0.020 | 0.024 | 0.343 | 0.357 | -0.014 | – | – |
+| Timestral | 248 | 0.089 | 0.016 | 0.072 | 0.577 | 0.282 | 0.024 | 0.568 | 0.287 | 0.281 | 0.520 | 11.581 |
+| Timestral, scaled | 248 | 0.070 | 0.016 | 0.054 | 0.504 | 0.270 | 0.024 | 0.638 | 0.288 | 0.350 | 0.540 | 13.809 |
 | k-NN | 235 | 0.111 | 0.017 | 0.093 | 0.417 | 0.328 | 0.024 | 0.575 | 0.277 | 0.298 | 0.519 | 20.539 |
 
 Only the 235 series where all 7 detectors ran:
@@ -92,6 +105,8 @@ Only the 235 series where all 7 detectors ran:
 | Med-Mad | 235 | 0.025 | 0.016 | 0.009 | 0.119 | 0.085 | 0.024 | 0.336 | 0.286 | 0.050 | 0.345 | 13.719 |
 | Mu-Sigma | 235 | 0.024 | 0.014 | 0.010 | 0.311 | 0.191 | 0.024 | 0.435 | 0.356 | 0.079 | 0.383 | 10.786 |
 | Null validity (D4) | 235 | 0.014 | 0.014 | -0.001 | 0.038 | 0.021 | 0.024 | 0.349 | 0.365 | -0.015 | – | – |
+| Timestral | 235 | 0.090 | 0.017 | 0.073 | 0.600 | 0.289 | 0.024 | 0.578 | 0.288 | 0.290 | 0.528 | 11.547 |
+| Timestral, scaled | 235 | 0.069 | 0.016 | 0.053 | 0.519 | 0.272 | 0.024 | 0.646 | 0.291 | 0.355 | 0.545 | 13.888 |
 | k-NN | 235 | 0.111 | 0.017 | 0.093 | 0.417 | 0.328 | 0.024 | 0.575 | 0.277 | 0.298 | 0.519 | 20.539 |
 
 Random baseline (D1, descriptive, all series): vus_pr 0.013, top1 0.027, adj_best_f1 0.363, detected 0.234, false_alarms_per_10k 10.980
