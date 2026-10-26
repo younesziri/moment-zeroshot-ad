@@ -8,10 +8,11 @@ al., ICML 2024).
 
 **Answer.** MOMENT beats its own chance level but is not shown to beat k-NN, and a
 simple matrix-profile baseline reaches about ten times its score on the range-aware metric (VUS-PR).
+**Timestral**, Mistral's newer forecasting model, does beat MOMENT, but stays well below the matrix profile.
 
 **Status: work in progress.** The 248-series results are from the final run (26/10/2026, code at
-commit fd602f3); every 248-series number comes from `results/248/summary.md` (produced by
-`scripts/analyse_248.py`).
+commit fd602f3) and the Timestral run (26/10/2026, code at commit ba9efce); every 248series number
+comes from `results/248/summary.md` (produced by `scripts/analyse_248.py`).
 
 ## Summary
 
@@ -28,6 +29,11 @@ commit fd602f3); every 248-series number comes from `results/248/summary.md` (pr
    adjusted best F1, chance is 0.37 for MOMENT, 0.28 for k-NN and 0.10 for the matrix profile. MOMENT
    leads on the raw metric (0.611 vs 0.575 for k-NN and 0.409 for the matrix profile) but trails on the
    excess over chance (0.244 vs 0.298 and 0.311).
+5. **Timestral beats MOMENT (pre-registered, D11).** Timestral-209M, scored by its forecast error,
+   exceeds its chance level on VUS-PR by 0.072 (CI [0.032, 0.117]) and MOMENT's excess by 0.053
+   (CI [0.014, 0.097], p = 0.033). On top-1 it finds 70 anomalies against MOMENT's 50, not significant.
+   Its VUS-PR (0.090) stays below k-NN's (0.111) and the matrix profile's (0.333). The paper's metric
+   would rank it below MOMENT (adjusted best F1 0.578 vs 0.611), the excess over chance above (0.290 vs 0.244).
 
 The question, the protocol and every decision were fixed before the first run in
 [`docs/analysis_plan.md`](docs/analysis_plan.md) (later changes logged there as dated deviations).
@@ -51,6 +57,9 @@ but we cannot verify it. On tiltAPB2 (ID 198), MOMENT gets 0.960 and 0.747 (Tabl
 
 - **MOMENT-1-large**, zero-shot: reconstruction error of each 512-point window, nothing masked.
   **Masked**: each patch is hidden in one of 4 passes and predicted from the others.
+- **Timestral-209M** (Mistral, 2026), zero-shot forecaster: each block of 64 points is forecast from
+  the 2048 points before it, score = squared error of the median forecast. **Scaled** (exploratory):
+  the error divided by the 10–90% forecast interval.
 - **k-NN** as in the authors' code: mean of the 5 nearest anomaly-free training windows.
 - **Course baselines** (Lecture 5): **Mu-Sigma** and **Med-Mad**, distance to the mean (median) of the
   last L points in standard deviations (median absolute deviations); the **matrix profile**, distance
@@ -73,6 +82,8 @@ part's length, the paper's ×10 rule, then applied to every part), L computed on
 |---|---|---|---|---|---|---|---|
 | MOMENT-1-large | 0.034 | 0.014 | 0.020 | 0.209 | 0.024 | 0.611 | 0.367 |
 | MOMENT-1-large, masked | 0.038 | 0.015 | 0.023 | 0.128 | 0.024 | 0.574 | 0.351 |
+| Timestral-209M | 0.090 | 0.017 | 0.073 | 0.289 | 0.024 | 0.578 | 0.288 |
+| Timestral-209M, scaled (exploratory) | 0.069 | 0.016 | 0.053 | 0.272 | 0.024 | 0.646 | 0.291 |
 | k-NN | 0.111 | 0.017 | 0.093 | 0.328 | 0.024 | 0.575 | 0.277 |
 | Mu-Sigma | 0.024 | 0.014 | 0.010 | 0.191 | 0.024 | 0.435 | 0.356 |
 | Med-Mad | 0.025 | 0.016 | 0.009 | 0.085 | 0.024 | 0.336 | 0.286 |
@@ -89,6 +100,10 @@ clustered bootstrap 95% interval excludes 0 and two-sided p < 0.05):
 | 3. top-1, MOMENT vs chance | 248 | 50 hits, 5.9 expected | [0.082, 0.293] | < 0.001 | reported, not confirmatory |
 | 4. top-1, MOMENT vs k-NN | 235 | 49 vs 77 hits | [−0.256, −0.004] | < 0.001 | reported, not confirmatory |
 | Q3. VUS-PR, masked vs unmasked | 248 | +0.003 | [−0.012, 0.030] | 0.006 | not significant (interval includes 0, although p < 0.05); sequence stops |
+| Q4.1 VUS-PR, Timestral vs chance | 248 | +0.072 | [0.032, 0.117] | < 0.001 | significant |
+| Q4.2 VUS-PR, Timestral vs MOMENT | 248 | +0.053 | [0.014, 0.097] | 0.033 | significant |
+| Q4.3 top-1, Timestral vs chance | 248 | 70 hits, 5.9 expected | [0.119, 0.401] | < 0.001 | significant |
+| Q4.4 top-1, Timestral vs MOMENT | 248 | 70 vs 50 hits | [−0.046, 0.220] | 0.013 | not significant (interval includes 0, although p < 0.05) |
 
 The null holds up: scores borrowed from another series reach p ≤ 0.05 in 3.6% of series (5% expected).
 
@@ -137,6 +152,8 @@ Per-series p-values when MOMENT's scores come from another series: roughly flat,
 - VUS is computed with the authors' copy of the VUS code, which may differ slightly from the current
   VUS release.
 - One model configuration: MOMENT-1-large, positional embedding on.
+- Timestral's training data is not documented on its model card, so it may also include this archive.
+  It was added after the main run (D11), but its protocol and tests were fixed before any Timestral run.
 - The matrix-profile comparison is descriptive, not a pre-registered test.
 
 ## References
@@ -153,6 +170,8 @@ Per-series p-values when MOMENT's scores come from another series: roughly flat,
   Time-Series Anomaly Detection. PVLDB. [Code](https://github.com/TheDatumOrg/VUS).
 - Liu & Paparrizos (2024). The Elephant in the Room: Towards A Reliable Time-Series Anomaly Detection
   Benchmark. NeurIPS Datasets and Benchmarks. [Code](https://github.com/TheDatumOrg/TSB-AD).
+- Mistral AI (2026). Timestral. [Code](https://github.com/mistralai/timestral) (commit a534bdb);
+  weights [mistralai/Timestral-209M](https://huggingface.co/mistralai/Timestral-209M) (revision 9874d25).
 - Yeh et al. (2016). Matrix Profile I: All Pairs Similarity Joins for Time Series. ICDM.
   [Matrix Profile page](https://www.cs.ucr.edu/~eamonn/MatrixProfile.html).
 - Kim et al. (2022). Towards a Rigorous Evaluation of Time-Series Anomaly Detection. AAAI.
@@ -167,6 +186,7 @@ uv run python scripts/download_data.py        # TSB-UAD (241 MB) and the UCR arc
 uv run python scripts/check_labels.py
 caffeinate -i sh -c 'for k in 0 1 2; do uv run python scripts/run_248.py --part $k/3 & done; wait;
                      uv run python scripts/run_248.py'      # about 4.5 h on a MacBook Air M2
+caffeinate -i uv run python scripts/run_timestral.py         # about 2 h, on CPU (no float64 on MPS)
 uv run python scripts/analyse_248.py
 uv run python scripts/plot_matrix_profile.py
 ```
