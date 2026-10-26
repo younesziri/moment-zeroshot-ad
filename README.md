@@ -1,6 +1,6 @@
 # MOMENT zero-shot anomaly detection, evaluated against chance
 
-Younes Ziri, research project for *Apprentissage pour les séries temporelles* (MVA, L. Oudre), on
+Younes Ziri, research project on
 [MOMENT: A Family of Open Time-series Foundation Models](https://arxiv.org/abs/2402.03885) (Goswami et
 al., ICML 2024).
 
@@ -82,7 +82,7 @@ part's length, the paper's ×10 rule, then applied to every part), L computed on
 Confirmatory tests, on every series each detector ran on (fixed sequences at α = 0.05; significant =
 clustered bootstrap 95% interval excludes 0 and two-sided p < 0.05):
 
-| Test | n | Estimate | 95% CI (clustered) | p | Outcome |
+| Test | n | Estimate | 95% CI (clustered) | p | Outcome |          
 |---|---|---|---|---|---|
 | 1. VUS-PR, MOMENT vs chance | 248 | +0.019 | [0.012, 0.027] | < 0.001 | significant |
 | 2. VUS-PR, MOMENT vs k-NN | 235 | −0.074 | [−0.142, −0.014] | 0.096 | not significant; sequence stops |
