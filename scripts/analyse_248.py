@@ -35,7 +35,9 @@ ALPHA = 0.05
 
 def commit() -> str:
     head = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
-    dirty = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True).stdout.strip()
+    # Only code counts: this script's own outputs (results/, figures/) are tracked and change on every run.
+    dirty = subprocess.run(["git", "status", "--porcelain", "--", "src", "scripts", "pyproject.toml", "uv.lock"],
+                           capture_output=True, text=True).stdout.strip()
     return head + (" (with uncommitted changes)" if dirty else "")
 
 
