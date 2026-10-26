@@ -6,13 +6,12 @@ al., ICML 2024).
 
 **Question.** Question: “The paper reports that zero-shot MOMENT beats k-NN and four deep-learning detectors (TimesNet, Anomaly Transformer, DGHL, GPT4TS) on point-adjusted F1, which can reward random scores. I re-test it against k-NN and simple course baselines: how much of that advantage survives when each detector is measured against its own chance level?”
 
-**Answer (preliminary).** MOMENT beats its own chance level but is not shown to beat k-NN, and a
+**Answer.** MOMENT beats its own chance level but is not shown to beat k-NN, and a
 simple matrix-profile baseline reaches about ten times its score on the range-aware metric (VUS-PR).
 
-**Status: work in progress.** **The 248-series numbers below are
-preliminary: first full run, 23/10/2026; final run pending.** In this first run a bug removed MOMENT
-from 9 series (fixed for the final run, `docs/analysis_plan.md`, D10). Every 248-series number comes from
-`results/248/summary.md` (produced by `scripts/analyse_248.py`).
+**Status: work in progress.** The 248-series results are from the final run (26/10/2026, code at
+commit fd602f3); every 248-series number comes from `results/248/summary.md` (produced by
+`scripts/analyse_248.py`).
 
 ## Summary
 
@@ -85,11 +84,11 @@ clustered bootstrap 95% interval excludes 0 and two-sided p < 0.05):
 
 | Test | n | Estimate | 95% CI (clustered) | p | Outcome |
 |---|---|---|---|---|---|
-| 1. VUS-PR, MOMENT vs chance | 239 | +0.019 | [0.012, 0.027] | < 0.001 | significant |
+| 1. VUS-PR, MOMENT vs chance | 248 | +0.019 | [0.012, 0.027] | < 0.001 | significant |
 | 2. VUS-PR, MOMENT vs k-NN | 235 | −0.074 | [−0.142, −0.014] | 0.096 | not significant; sequence stops |
-| 3. top-1, MOMENT vs chance | 239 | 49 hits, 5.8 expected | [0.085, 0.296] | < 0.001 | reported, not confirmatory |
+| 3. top-1, MOMENT vs chance | 248 | 50 hits, 5.9 expected | [0.082, 0.293] | < 0.001 | reported, not confirmatory |
 | 4. top-1, MOMENT vs k-NN | 235 | 49 vs 77 hits | [−0.256, −0.004] | < 0.001 | reported, not confirmatory |
-| Q3. VUS-PR, masked vs unmasked | 239 | +0.004 | [−0.012, 0.032] | 0.011 | not significant; sequence stops |
+| Q3. VUS-PR, masked vs unmasked | 248 | +0.003 | [−0.012, 0.030] | 0.006 | not significant (interval includes 0, although p < 0.05); sequence stops |
 
 The null holds up: scores borrowed from another series reach p ≤ 0.05 in 3.6% of series (5% expected).
 
@@ -139,7 +138,6 @@ Per-series p-values when MOMENT's scores come from another series: roughly flat,
   VUS release.
 - One model configuration: MOMENT-1-large, positional embedding on.
 - The matrix-profile comparison is descriptive, not a pre-registered test.
-- One run so far.
 
 ## References
 

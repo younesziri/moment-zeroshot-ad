@@ -1,47 +1,48 @@
-Produced by `scripts/analyse_248.py` at commit 90d0e60832dd2807803a4bac06e83279eb323f8b (with uncommitted changes).
+Produced by `scripts/analyse_248.py` at commit 7d46888b401f92ac5729d543d0d784a8c02a351c.
 
 ## Coverage
 
 - Series with results: 248; the paper's per-part downsampling rule would differ from ours (one factor per series): 121; calibration part shorter than 512: 130; no autocorrelation peak (L = 512): 0.
-- Failures (31):
+- Failures (13):
 
 | id | configuration | detector | error |
 |---|---|---|---|
-| 15 | consistent | MOMENT | ValueError: not enough history (429 points) to score a part of 72 |
-| 15 | consistent | MOMENT masked | ValueError: not enough history (429 points) to score a part of 72 |
-| 15 | consistent | k-NN | ValueError: not enough history (429 points) to score a part of 72 |
-| 56 | consistent | MOMENT | ValueError: not enough history (429 points) to score a part of 72 |
-| 56 | consistent | MOMENT masked | ValueError: not enough history (429 points) to score a part of 72 |
-| 56 | consistent | k-NN | ValueError: not enough history (429 points) to score a part of 72 |
-| 57 | consistent | k-NN | ValueError: Expected n_neighbors <= n_samples_fit, but n_neighbors = 5, n_samples_fit = 4, n_samples = 1 |
-| 74 | consistent | MOMENT | ValueError: not enough history (343 points) to score a part of 58 |
-| 74 | consistent | MOMENT masked | ValueError: not enough history (343 points) to score a part of 58 |
-| 74 | consistent | k-NN | ValueError: not enough history (343 points) to score a part of 58 |
-| 75 | consistent | MOMENT | ValueError: not enough history (343 points) to score a part of 58 |
-| 75 | consistent | MOMENT masked | ValueError: not enough history (343 points) to score a part of 58 |
-| 75 | consistent | k-NN | ValueError: not enough history (343 points) to score a part of 58 |
-| 104 | consistent | k-NN | ValueError: Expected n_neighbors <= n_samples_fit, but n_neighbors = 5, n_samples_fit = 4, n_samples = 1 |
-| 123 | consistent | MOMENT | ValueError: not enough history (429 points) to score a part of 72 |
-| 123 | consistent | MOMENT masked | ValueError: not enough history (429 points) to score a part of 72 |
-| 123 | consistent | k-NN | ValueError: not enough history (429 points) to score a part of 72 |
-| 164 | consistent | MOMENT | ValueError: not enough history (429 points) to score a part of 72 |
-| 164 | consistent | MOMENT masked | ValueError: not enough history (429 points) to score a part of 72 |
-| 164 | consistent | k-NN | ValueError: not enough history (429 points) to score a part of 72 |
-| 165 | consistent | k-NN | ValueError: Expected n_neighbors <= n_samples_fit, but n_neighbors = 5, n_samples_fit = 4, n_samples = 1 |
-| 182 | consistent | MOMENT | ValueError: not enough history (343 points) to score a part of 58 |
-| 182 | consistent | MOMENT masked | ValueError: not enough history (343 points) to score a part of 58 |
-| 182 | consistent | k-NN | ValueError: not enough history (343 points) to score a part of 58 |
-| 183 | consistent | MOMENT | ValueError: not enough history (343 points) to score a part of 58 |
-| 183 | consistent | MOMENT masked | ValueError: not enough history (343 points) to score a part of 58 |
-| 183 | consistent | k-NN | ValueError: not enough history (343 points) to score a part of 58 |
-| 207 | consistent | MOMENT | ValueError: not enough history (272 points) to score a part of 46 |
-| 207 | consistent | MOMENT masked | ValueError: not enough history (272 points) to score a part of 46 |
-| 207 | consistent | k-NN | ValueError: not enough history (272 points) to score a part of 46 |
+| 15 | consistent | k-NN | ValueError: window shape cannot be larger than input array shape |
+| 56 | consistent | k-NN | ValueError: window shape cannot be larger than input array shape |
+| 57 | consistent | k-NN | ValueError: Expected n_neighbors <= n_samples_fit, but n_neighbors = 5, n_samples_fit = 4, n_samples = 7 |
+| 74 | consistent | k-NN | ValueError: window shape cannot be larger than input array shape |
+| 75 | consistent | k-NN | ValueError: window shape cannot be larger than input array shape |
+| 104 | consistent | k-NN | ValueError: Expected n_neighbors <= n_samples_fit, but n_neighbors = 5, n_samples_fit = 4, n_samples = 7 |
+| 123 | consistent | k-NN | ValueError: window shape cannot be larger than input array shape |
+| 164 | consistent | k-NN | ValueError: window shape cannot be larger than input array shape |
+| 165 | consistent | k-NN | ValueError: Expected n_neighbors <= n_samples_fit, but n_neighbors = 5, n_samples_fit = 4, n_samples = 7 |
+| 182 | consistent | k-NN | ValueError: window shape cannot be larger than input array shape |
+| 183 | consistent | k-NN | ValueError: window shape cannot be larger than input array shape |
+| 207 | consistent | k-NN | ValueError: window shape cannot be larger than input array shape |
 | 208 | consistent | k-NN | ValueError: window shape cannot be larger than input array shape |
 
-- Alerting missing, other metrics kept (D10) (0):
+- Alerting missing, other metrics kept (D10) (18):
 
-none
+| id | detector | alerting_missing |
+|---|---|---|
+| 15 | MOMENT | ValueError: not enough history (429 points) to score a part of 72 |
+| 15 | MOMENT masked | ValueError: not enough history (429 points) to score a part of 72 |
+| 56 | MOMENT | ValueError: not enough history (429 points) to score a part of 72 |
+| 56 | MOMENT masked | ValueError: not enough history (429 points) to score a part of 72 |
+| 74 | MOMENT | ValueError: not enough history (343 points) to score a part of 58 |
+| 74 | MOMENT masked | ValueError: not enough history (343 points) to score a part of 58 |
+| 75 | MOMENT | ValueError: not enough history (343 points) to score a part of 58 |
+| 75 | MOMENT masked | ValueError: not enough history (343 points) to score a part of 58 |
+| 123 | MOMENT | ValueError: not enough history (429 points) to score a part of 72 |
+| 123 | MOMENT masked | ValueError: not enough history (429 points) to score a part of 72 |
+| 164 | MOMENT | ValueError: not enough history (429 points) to score a part of 72 |
+| 164 | MOMENT masked | ValueError: not enough history (429 points) to score a part of 72 |
+| 182 | MOMENT | ValueError: not enough history (343 points) to score a part of 58 |
+| 182 | MOMENT masked | ValueError: not enough history (343 points) to score a part of 58 |
+| 183 | MOMENT | ValueError: not enough history (343 points) to score a part of 58 |
+| 183 | MOMENT masked | ValueError: not enough history (343 points) to score a part of 58 |
+| 207 | MOMENT | ValueError: not enough history (272 points) to score a part of 46 |
+| 207 | MOMENT masked | ValueError: not enough history (272 points) to score a part of 46 |
 
 ## Family 1 (Q1–Q2), fixed sequence at α = 0.05
 
@@ -49,9 +50,9 @@ Significant = clustered bootstrap 95% interval excludes 0 in MOMENT's favour and
 
 | test | n | mean | CI clustered | CI plain | p | p one-sided (in favour) | significant | confirmatory | hits | expected |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 1. VUS-PR, MOMENT vs chance | 239 | 0.019 | [0.0121, 0.0268] | [0.0149, 0.0244] | < 0.001 | < 0.001 | True | yes | – | – |
+| 1. VUS-PR, MOMENT vs chance | 248 | 0.019 | [0.0121, 0.0266] | [0.0149, 0.0243] | < 0.001 | < 0.001 | True | yes | – | – |
 | 2. VUS-PR, MOMENT vs k-NN (difference of excesses) | 235 | -0.074 | [-0.1420, -0.0137] | [-0.0961, -0.0529] | 0.096 | 0.955 | False | no | – | – |
-| 3. top-1, MOMENT vs chance (|Z|/n) | 239 | 0.181 | [0.0847, 0.2961] | [0.1316, 0.2315] | < 0.001 | – | True | no (sequence stopped earlier) | 49 | 5.770 |
+| 3. top-1, MOMENT vs chance (|Z|/n) | 248 | 0.178 | [0.0819, 0.2933] | [0.1291, 0.2289] | < 0.001 | – | True | no (sequence stopped earlier) | 50 | 5.890 |
 | 4. top-1, MOMENT vs k-NN (McNemar) | 235 | -0.119 | [-0.2560, -0.0040] | [-0.1830, -0.0553] | < 0.001 | – | False | no (sequence stopped earlier) | 49 vs 77 | – |
 
 ## Family 2 (Q3), masked vs unmasked, fixed sequence at α = 0.05
@@ -60,8 +61,8 @@ Two-sided: significant = clustered interval excludes 0 (either direction) and p 
 
 | test | n | mean | CI clustered | CI plain | p | significant | confirmatory | hits |
 |---|---|---|---|---|---|---|---|---|
-| 1. VUS-PR, masked vs unmasked (difference of excesses) | 239 | 0.004 | [-0.0119, 0.0320] | [-0.0042, 0.0125] | 0.011 | False | no | – |
-| 2. top-1, masked vs unmasked (McNemar) | 239 | -0.079 | [-0.1539, -0.0050] | [-0.1255, -0.0377] | < 0.001 | True | no (sequence stopped earlier) | 30 vs 49 |
+| 1. VUS-PR, masked vs unmasked (difference of excesses) | 248 | 0.003 | [-0.0118, 0.0299] | [-0.0046, 0.0113] | 0.006 | False | no | – |
+| 2. top-1, masked vs unmasked (McNemar) | 248 | -0.081 | [-0.1564, -0.0079] | [-0.1250, -0.0363] | < 0.001 | True | no (sequence stopped earlier) | 30 vs 50 |
 
 ## Per detector ("consistent")
 
@@ -71,8 +72,8 @@ All series each detector ran on:
 
 | detector | n | vus_pr | vus_pr_chance | vus_pr_excess | share_p_le_005 | top1 | top1_chance | adj_best_f1 | adj_best_f1_chance | adj_best_f1_excess | detection_rate | false_alarms_per_10k |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| MOMENT | 239 | 0.034 | 0.014 | 0.019 | 0.439 | 0.205 | 0.024 | 0.603 | 0.363 | 0.240 | 0.477 | 12.920 |
-| MOMENT masked | 239 | 0.038 | 0.015 | 0.023 | 0.381 | 0.126 | 0.024 | 0.565 | 0.347 | 0.218 | 0.402 | 14.107 |
+| MOMENT | 248 | 0.033 | 0.014 | 0.019 | 0.440 | 0.202 | 0.024 | 0.602 | 0.362 | 0.240 | 0.477 | 12.920 |
+| MOMENT masked | 248 | 0.037 | 0.014 | 0.022 | 0.375 | 0.121 | 0.024 | 0.561 | 0.347 | 0.214 | 0.402 | 14.107 |
 | Matrix profile | 248 | 0.334 | 0.028 | 0.305 | 0.573 | 0.375 | 0.024 | 0.413 | 0.097 | 0.316 | 0.698 | 7.860 |
 | Matrix profile, self-join | 248 | 0.392 | 0.029 | 0.363 | 0.641 | 0.427 | 0.024 | 0.464 | 0.098 | 0.365 | 0.641 | 5.823 |
 | Med-Mad | 248 | 0.024 | 0.016 | 0.009 | 0.121 | 0.085 | 0.024 | 0.337 | 0.286 | 0.051 | 0.355 | 13.963 |
@@ -151,22 +152,22 @@ tiltAPB2 (ID 198), MOMENT: adjusted best F1 0.960 (Table 22: 0.96), VUS-ROC 0.74
 
 | metric | n | mean excess | p (group Wilcoxon, unadjusted) |
 |---|---|---|---|
-| auc_pr | 239 | 0.032 | < 0.001 |
-| auc_roc | 239 | 0.108 | < 0.001 |
-| adj_best_f1_ranks | 239 | 0.165 | < 0.001 |
+| auc_pr | 248 | 0.031 | < 0.001 |
+| auc_roc | 248 | 0.108 | < 0.001 |
+| adj_best_f1_ranks | 248 | 0.162 | < 0.001 |
 
-i.i.d. null vs circular shift, MOMENT, series where they disagree at p ≤ 0.05: {'vus_pr': 54, 'auc_pr': 34}
+i.i.d. null vs circular shift, MOMENT, series where they disagree at p ≤ 0.05: {'vus_pr': 55, 'auc_pr': 34}
 
-MOMENT's VUS-PR excess against anomaly length: Spearman rho 0.080, p 0.219; against series length: rho -0.213, p 0.001; DISTORTED vs not: Mann-Whitney p 0.970.
+MOMENT's VUS-PR excess against anomaly length: Spearman rho 0.095, p 0.134; against series length: rho -0.200, p 0.002; DISTORTED vs not: Mann-Whitney p 0.996.
 
 MOMENT's mean VUS-PR excess per source group (D5):
 
 | group | count | mean |
 |---|---|---|
 | BIDMC | 3 | 0.036 |
-| CHARIS | 7 | 0.003 |
+| CHARIS | 8 | 0.002 |
 | CIMISAirTemperature | 13 | 0.039 |
-| ECG | 15 | 0.020 |
+| ECG | 17 | 0.026 |
 | EPG | 25 | 0.038 |
 | Fantasia | 1 | 0.002 |
 | GPMarkerLFMz | 11 | 0.009 |
@@ -176,11 +177,12 @@ MOMENT's mean VUS-PR excess per source group (D5):
 | STAFFIIIDatabase | 9 | 0.007 |
 | TkeepMARS | 11 | 0.033 |
 | WalkingAceleration | 4 | 0.028 |
-| apneaecg | 7 | 0.002 |
+| apneaecg | 9 | 0.001 |
 | gait | 14 | 0.006 |
 | ltstdbs | 6 | 0.077 |
 | mitlongtermecg | 17 | 0.007 |
 | parkm | 2 | 0.026 |
+| qtdbSel | 4 | 0.006 |
 | resperation | 17 | -0.000 |
 | sddb | 9 | 0.014 |
 | selmECG | 4 | 0.003 |
