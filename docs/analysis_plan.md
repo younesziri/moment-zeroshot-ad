@@ -363,3 +363,25 @@ All from `src/zsad/metrics.py`, computed on the test part at the configuration's
   "paper-faithful" series has nothing to score; a matrix-profile figure (3 series, fixed rule).
 - Any other downsampling rule would be a sensitivity analysis decided after seeing results, and
   labelled as such.
+
+### D11, 26/10/2026, before any Timestral run: Timestral (Mistral, released 15/10/2026)
+
+Added after the final run of the other detectors, before any Timestral result.
+
+- **Model**: Timestral-209M (`mistralai/timestral`, inference code pinned to a commit; weights at a
+  recorded Hugging Face revision), zero-shot, "consistent" configuration only (not in the paper).
+- **Score**: a forecaster, so the forecast error. The test part is cut into blocks of 64 points
+  (2 patches); each block is forecast from the 2048 points before it (from the train part for the
+  first blocks), and each point's score is (x − median forecast)². The calibration part is scored the
+  same way, from the fit part. Exploratory: |x − median| / (q0.9 − q0.1).
+- **Null and metrics**: as for the other detectors (100 circular shifts, seed = series ID).
+- **Tests**, a third family (Q4) at α = 0.05, fixed sequence, same rules as family 1:
+  1. VUS-PR, Timestral vs chance;
+  2. VUS-PR, Timestral vs MOMENT (difference of excesses);
+  3. top-1, Timestral vs chance;
+  4. top-1, Timestral vs MOMENT (McNemar).
+
+  Timestral vs k-NN and vs the matrix profile: descriptive.
+- **Fallback, fixed now**: if the timing on tiltAPB2 projects more than 3 h for the 248 series,
+  Timestral-28M with the same settings.
+- **Limitation**: the model card does not say what Timestral was trained on.
